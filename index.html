@@ -1,0 +1,2971 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#0b0f19" />
+  <meta name="description" content="DuckGym: rutinas de gimnasio y calistenia con entrenamiento guiado paso a paso, temporizador de descanso e historial de progreso." />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="DuckGym" />
+  <link rel="icon" type="image/png" href="./logo.png" />
+  <link rel="apple-touch-icon" href="./logo.png" />
+  <title>DuckGym — Entrenamiento interactivo</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            duck: '#facc15',
+            duckDeep: '#eab308',
+            ink: '#0b0f19',
+            slate900: '#0f172a',
+            slate800: '#1e293b',
+          },
+          fontFamily: { inter: ['Inter', 'sans-serif'] },
+        },
+      },
+    };
+
+    // Logo loader: ./logo.png → SVG inline de respaldo
+    window.dgLogoFallback = function (img, fallbackId) {
+      img.classList.add('hidden');
+      var fb = document.getElementById(fallbackId);
+      if (fb) { fb.classList.remove('hidden'); }
+    };
+    window.dgLogoLoaded = function (img, fallbackId) {
+      img.classList.remove('hidden');
+      var fb = document.getElementById(fallbackId);
+      if (fb) { fb.classList.add('hidden'); }
+    };
+  </script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+  <style>
+    html, body { margin: 0; padding: 0; background: #0b0f19; font-family: 'Inter', sans-serif; }
+    .no-scrollbar::-webkit-scrollbar { display: none; }
+    .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    #hiitModal { transition: background-color .3s ease, color .3s ease; }
+    #hiitModal[data-phase="prep"] { background: #0f172a; color: #f8fafc; }
+    #hiitModal[data-phase="work"] { background: #22e35a; color: #03140a; }
+    #hiitModal[data-phase="rest"] { background: #facc15; color: #1c1402; }
+    #hiitModal[data-phase="done"] { background: #0b0f19; color: #f8fafc; }
+    #hiitModal[data-paused="true"] #hiitPhaseLabel, #hiitModal[data-paused="true"] #hiitCountdown { opacity: .55; }
+    #flowModal { transition: background-color .3s ease, color .3s ease; }
+    #flowModal[data-phase="prep"] { background: #0f172a; color: #f8fafc; }
+    #flowModal[data-kind="yoga"][data-phase="active"] { background: linear-gradient(160deg, #115e59 0%, #1e1b4b 100%); color: #ecfeff; }
+    #flowModal[data-kind="amrap"][data-phase="active"] { background: #dc2626; color: #ffffff; }
+    #flowModal[data-kind="emom"][data-phase="active"] { background: #fb923c; color: #1c0a02; }
+    #flowModal[data-phase="done"] { background: #0b0f19; color: #f8fafc; }
+    #flowModal[data-paused="true"] #flowPhaseLabel, #flowModal[data-paused="true"] #flowCountdown { opacity: .55; }
+    #flowModal[data-kind="yoga"] #flowPhaseLabel { font-size: clamp(2rem, 7vw, 4.5rem); text-transform: none; }
+    #flowModal[data-kind="amrap"] #flowCountdown { font-size: clamp(4.5rem, 18vw, 9rem); }
+    #flowModal[data-kind="amrap"] #flowPhaseLabel { font-size: clamp(2rem, 6vw, 3.5rem); }
+    #flowActivePanel > :first-child { margin-top: auto; }
+    #flowActivePanel > :last-child { margin-bottom: auto; }
+    #flowModal.flow-flash { animation: flowFlash .7s ease-out; }
+    @keyframes flowFlash { from { filter: brightness(1.7); } to { filter: brightness(1); } }
+  </style>
+</head>
+<body class="bg-ink text-slate-300 font-inter min-h-screen antialiased">
+
+  <!-- ================= PANTALLA DE ACCESO ================= -->
+  <div id="authScreen" class="min-h-screen flex items-center justify-center p-4 bg-ink">
+    <div class="w-full max-w-md">
+      <div class="text-center mb-8">
+        <div class="flex justify-center mb-4">
+          <img id="authLogo" src="./logo.png" alt="Logotipo de DuckGym" class="w-24 h-24 rounded-2xl object-contain" onload="dgLogoLoaded(this, 'authLogoFallback')" onerror="dgLogoFallback(this, 'authLogoFallback')" />
+          <svg id="authLogoFallback" class="hidden w-24 h-24" viewBox="0 0 128 128" role="img" aria-label="DuckGym">
+            <path d="M36 70 15 52c-1.4-1.1-.4-3.3 1.4-2.9l26 7.4z" fill="#eab308"/>
+            <ellipse cx="64" cy="83" rx="40" ry="26" fill="#facc15"/>
+            <circle cx="87" cy="45" r="19" fill="#facc15"/>
+            <path d="M101 39c8-1.4 15 .4 17 4.6 1.4 3-1.4 6.4-5.8 7.4l-9.4 2c-4.2.9-7.3-2.2-7.2-6.2.1-3.4 1.9-6.6 5.4-7.8z" fill="#eab308"/>
+            <circle cx="93" cy="38" r="3.2" fill="#0b0f19"/>
+            <path d="M36 78c10-9 26-11 38-3-3.4 8.2-11.6 13.1-21.6 13.9-7.2.6-13-3.2-16.4-10.9z" fill="#eab308" opacity=".85"/>
+          </svg>
+        </div>
+        <h1 class="text-5xl font-extrabold tracking-tight leading-none mt-2">
+          <span class="text-white">DUCK</span><span class="text-duck">GYM</span>
+        </h1>
+        <p class="text-slate-400 mt-3 text-sm font-medium">Fitness progresivo. Todo en un lugar.</p>
+      </div>
+      <div class="bg-slate900 border border-slate800 rounded-2xl p-6 shadow-2xl">
+        <div class="flex bg-slate800 rounded-xl p-1 mb-6">
+          <button type="button" id="authTabLogin" class="auth-tab flex-1 py-2 rounded-lg text-sm font-bold transition-colors bg-duck text-ink">Iniciar sesión</button>
+          <button type="button" id="authTabSignup" class="auth-tab flex-1 py-2 rounded-lg text-sm font-bold transition-colors text-slate-400">Registrarse</button>
+        </div>
+        <form id="authForm" class="space-y-4" autocomplete="off">
+          <div id="authNameWrap" class="hidden">
+            <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">Nombre visible</label>
+            <input id="authName" type="text" placeholder="Tu nombre" class="w-full bg-slate800 border border-[#334155] rounded-lg px-3 py-2.5 text-slate-200 placeholder-slate-500 focus:border-duck focus:outline-none" />
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">Usuario</label>
+            <input id="authUser" type="text" placeholder="tu_usuario" class="w-full bg-slate800 border border-[#334155] rounded-lg px-3 py-2.5 text-slate-200 placeholder-slate-500 focus:border-duck focus:outline-none" />
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">Contraseña</label>
+            <input id="authPass" type="password" placeholder="••••••••" class="w-full bg-slate800 border border-[#334155] rounded-lg px-3 py-2.5 text-slate-200 placeholder-slate-500 focus:border-duck focus:outline-none" />
+          </div>
+          <div id="authConfirmWrap" class="hidden">
+            <label class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">Confirmar contraseña</label>
+            <input id="authPass2" type="password" placeholder="••••••••" class="w-full bg-slate800 border border-[#334155] rounded-lg px-3 py-2.5 text-slate-200 placeholder-slate-500 focus:border-duck focus:outline-none" />
+          </div>
+          <button type="submit" id="authSubmit" class="w-full py-3 rounded-xl bg-duck text-ink font-extrabold text-base hover:bg-duckDeep transition-colors">Entrar</button>
+        </form>
+        <p id="authError" class="mt-4 text-red-400 text-sm font-semibold text-center hidden"></p>
+      </div>
+      <p class="text-center text-slate-500 text-xs mt-4">🔒 Las contraseñas se hashean con SHA-256 (Web Crypto API o fallback) y se guardan localmente. Nada sale de tu navegador.</p>
+    </div>
+  </div>
+
+  <!-- ================= APLICACIÓN ================= -->
+  <div id="appScreen" class="hidden min-h-screen bg-ink">
+    <header class="sticky top-0 z-40 bg-ink/90 backdrop-blur border-b border-slate800">
+      <div class="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
+        <div class="flex items-center gap-2.5">
+          <img id="headerLogo" src="./logo.png" alt="Logotipo de DuckGym" class="w-10 h-10 rounded-lg object-contain" onload="dgLogoLoaded(this, 'headerLogoFallback')" onerror="dgLogoFallback(this, 'headerLogoFallback')" />
+          <svg id="headerLogoFallback" class="hidden w-10 h-10" viewBox="0 0 128 128" role="img" aria-label="DuckGym">
+            <path d="M36 70 15 52c-1.4-1.1-.4-3.3 1.4-2.9l26 7.4z" fill="#eab308"/>
+            <ellipse cx="64" cy="83" rx="40" ry="26" fill="#facc15"/>
+            <circle cx="87" cy="45" r="19" fill="#facc15"/>
+            <path d="M101 39c8-1.4 15 .4 17 4.6 1.4 3-1.4 6.4-5.8 7.4l-9.4 2c-4.2.9-7.3-2.2-7.2-6.2.1-3.4 1.9-6.6 5.4-7.8z" fill="#eab308"/>
+            <circle cx="93" cy="38" r="3.2" fill="#0b0f19"/>
+            <path d="M36 78c10-9 26-11 38-3-3.4 8.2-11.6 13.1-21.6 13.9-7.2.6-13-3.2-16.4-10.9z" fill="#eab308" opacity=".85"/>
+          </svg>
+          <span class="text-xl font-extrabold tracking-tight">
+            <span class="text-white">DUCK</span><span class="text-duck">GYM</span>
+          </span>
+        </div>
+        <div class="flex items-center gap-3">
+          <span id="userBadge" class="hidden text-sm text-slate-400 font-semibold"></span>
+          <button id="logoutBtn" class="px-4 py-2 rounded-xl border border-slate800 bg-slate900 text-slate-300 text-sm font-bold hover:border-duck hover:text-duck transition-colors">Cerrar sesión</button>
+        </div>
+      </div>
+    </header>
+
+    <div class="max-w-6xl mx-auto px-4 pt-4">
+      <div class="flex gap-2 bg-slate900 border border-slate800 rounded-2xl p-1.5 overflow-x-auto no-scrollbar">
+        <button data-view="dashboard" class="view-tab px-4 py-2 rounded-xl text-sm font-bold transition-colors whitespace-nowrap bg-duck text-ink">📊 Panel</button>
+        <button data-view="routines" class="view-tab px-4 py-2 rounded-xl text-sm font-bold transition-colors whitespace-nowrap text-slate-400">🏋️ Rutinas</button>
+        <button data-view="history" class="view-tab px-4 py-2 rounded-xl text-sm font-bold transition-colors whitespace-nowrap text-slate-400">📜 Historial</button>
+      </div>
+    </div>
+
+    <main class="max-w-6xl mx-auto px-4 pb-16">
+      <!-- ================= PANEL ================= -->
+      <section id="view-dashboard" class="pt-6 space-y-6">
+        <div class="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
+          <div>
+            <h2 class="text-2xl font-extrabold text-white">Panel</h2>
+            <p class="text-slate-400 text-sm mt-1 font-medium" id="dashGreeting">¡Hola de nuevo!</p>
+          </div>
+          <button id="dashStartBtn" class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-duck text-ink font-extrabold text-sm hover:bg-duckDeep transition-colors">＋ Empezar entrenamiento</button>
+        </div>
+
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <div class="bg-slate900 border border-slate800 rounded-2xl p-5">
+            <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500">Series completadas</p>
+            <p class="mt-2 text-3xl font-extrabold text-duck" id="statSets">0</p>
+            <p class="text-xs text-slate-500 mt-1 font-medium">series en total</p>
+          </div>
+          <div class="bg-slate900 border border-slate800 rounded-2xl p-5">
+            <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500">Calorías estimadas</p>
+            <p class="mt-2 text-3xl font-extrabold text-duck" id="statCalories">0</p>
+            <p class="text-xs text-slate-500 mt-1 font-medium">kcal estimadas</p>
+          </div>
+          <div class="bg-slate900 border border-slate800 rounded-2xl p-5">
+            <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500">Minutos de entrenamiento</p>
+            <p class="mt-2 text-3xl font-extrabold text-duck tabular-nums" id="statTime">0</p>
+            <p class="text-xs text-slate-500 mt-1 font-medium" id="statTimeSub">00:00:00 acumulados</p>
+          </div>
+          <div class="bg-slate900 border border-slate800 rounded-2xl p-5">
+            <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500">Rutinas completadas</p>
+            <p class="mt-2 text-3xl font-extrabold text-duck" id="statSessions">0</p>
+            <p class="text-xs text-slate-500 mt-1 font-medium" id="statSessionsSub">completadas</p>
+          </div>
+        </div>
+
+        <div class="bg-slate900 border border-slate800 rounded-2xl p-5">
+          <div class="flex items-center justify-between mb-4">
+            <h3 class="font-extrabold text-white text-lg">Progreso semanal</h3>
+            <span class="text-xs text-slate-500 font-semibold">últimos 7 días · minutos</span>
+          </div>
+          <div class="h-64"><canvas id="weeklyChart"></canvas></div>
+        </div>
+
+        <div>
+          <div class="flex items-end justify-between gap-3 mb-3">
+            <div>
+              <h3 class="font-extrabold text-white text-lg">Historial de rutinas completadas</h3>
+              <p class="text-xs text-slate-500 font-medium mt-0.5">GIFs de los ejercicios realizados y tiempo registrado.</p>
+            </div>
+            <div class="flex items-center gap-3">
+              <span id="routineHistoryCount" class="text-xs text-slate-500 font-semibold">0 rutinas</span>
+              <button id="viewAllHistory" class="text-sm font-bold text-duck hover:text-duckDeep transition-colors">Ver todas →</button>
+            </div>
+          </div>
+          <div id="routineHistoryEmpty" class="hidden bg-slate900 border border-slate800 rounded-2xl p-8 text-center text-slate-400 font-medium">
+            Aún no has completado ninguna rutina. Abre el catálogo y pulsa “Comenzar checklist”. 🦆
+          </div>
+          <div id="routineHistoryList" class="grid gap-4"></div>
+        </div>
+
+      </section>
+
+      <!-- ================= RUTINAS ================= -->
+      <section id="view-routines" class="hidden pt-6 space-y-6">
+        <div class="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
+          <div>
+            <h2 class="text-2xl font-extrabold text-white">Catálogo de Rutinas</h2>
+            <p class="text-slate-400 text-sm mt-1 font-medium">Fuerza, calistenia, intervalos HIIT / Tabata, yoga y movilidad, y WODs de CrossFit.</p>
+          </div>
+          <div data-mode-panel="strength" class="flex gap-2 bg-slate900 border border-slate800 rounded-2xl p-1.5 overflow-x-auto no-scrollbar">
+            <button data-filter="all" class="px-4 py-2 rounded-xl text-sm font-bold transition-colors bg-duck text-ink">Todas</button>
+            <button data-filter="gym" class="px-4 py-2 rounded-xl text-sm font-bold transition-colors text-slate-400">🏛 Gimnasio / Fuerza</button>
+            <button data-filter="outdoor" class="px-4 py-2 rounded-xl text-sm font-bold transition-colors text-slate-400">🏞 Calistenia / Aire libre</button>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 sm:flex gap-2 bg-slate900 border border-slate800 rounded-2xl p-1.5 w-full sm:w-fit" role="tablist" aria-label="Modalidad de entrenamiento">
+          <button type="button" data-mode="strength" role="tab" aria-selected="true" class="sm:flex-none px-4 py-2.5 rounded-xl text-sm font-extrabold transition-colors bg-duck text-ink">💪 Musculación / Fuerza</button>
+          <button type="button" data-mode="hiit" role="tab" aria-selected="false" class="sm:flex-none px-4 py-2.5 rounded-xl text-sm font-extrabold transition-colors text-slate-400">⚡ HIIT / Tabata</button>
+          <button type="button" data-mode="yoga" role="tab" aria-selected="false" class="sm:flex-none px-4 py-2.5 rounded-xl text-sm font-extrabold transition-colors text-slate-400">🧘 Yoga / Movilidad</button>
+          <button type="button" data-mode="wod" role="tab" aria-selected="false" class="sm:flex-none px-4 py-2.5 rounded-xl text-sm font-extrabold transition-colors text-slate-400">🏋️ CrossFit / WOD</button>
+        </div>
+
+        <div id="routineGrid" data-mode-panel="strength" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+
+        <!-- Modalidad HIIT / Tabata -->
+        <div id="hiitPanel" data-mode-panel="hiit" class="hidden space-y-4">
+          <div class="bg-slate900 border border-lime-400/30 rounded-2xl p-4 text-sm text-slate-300 font-medium">
+            ⚡ <span class="font-extrabold text-lime-300">Entrenamiento por intervalos:</span> el temporizador alterna solo entre <span class="font-bold text-lime-300">trabajo</span> y <span class="font-bold text-duck">descanso</span>, con avisos sonoros (Web Audio API): tono agudo al empezar a trabajar, doble pitido al descansar y pitido largo al terminar.
+          </div>
+          <div id="hiitPresetGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+          <form id="hiitCustomForm" class="bg-slate900 border border-slate800 rounded-2xl p-5" novalidate>
+            <h3 class="font-extrabold text-white text-lg">🛠 HIIT personalizado</h3>
+            <p class="text-slate-400 text-sm mt-1 font-medium">Elige tus intervalos; los ejercicios rotan en un circuito de cuerpo completo.</p>
+            <div class="grid grid-cols-3 gap-3 mt-4">
+              <label class="block">
+                <span class="text-[11px] font-bold uppercase tracking-wider text-lime-300">Trabajo (s)</span>
+                <input id="hiitWorkInput" type="number" inputmode="numeric" min="5" max="300" step="5" value="30" class="mt-1 w-full bg-ink border border-slate800 rounded-xl px-3 py-2.5 text-white font-extrabold text-lg focus:outline-none focus:border-lime-400" />
+              </label>
+              <label class="block">
+                <span class="text-[11px] font-bold uppercase tracking-wider text-duck">Descanso (s)</span>
+                <input id="hiitRestInput" type="number" inputmode="numeric" min="0" max="300" step="5" value="15" class="mt-1 w-full bg-ink border border-slate800 rounded-xl px-3 py-2.5 text-white font-extrabold text-lg focus:outline-none focus:border-duck" />
+              </label>
+              <label class="block">
+                <span class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Rondas</span>
+                <input id="hiitRoundsInput" type="number" inputmode="numeric" min="1" max="50" step="1" value="10" class="mt-1 w-full bg-ink border border-slate800 rounded-xl px-3 py-2.5 text-white font-extrabold text-lg focus:outline-none focus:border-slate-400" />
+              </label>
+            </div>
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mt-4">
+              <p id="hiitCustomSummary" class="text-xs text-slate-400 font-semibold"></p>
+              <button type="submit" class="px-5 py-3 rounded-xl bg-lime-400 text-ink font-extrabold text-sm hover:bg-lime-300 transition-colors">⚡ Iniciar personalizado</button>
+            </div>
+          </form>
+        </div>
+
+        <!-- Modalidad Yoga / Movilidad -->
+        <div id="yogaPanel" data-mode-panel="yoga" class="hidden space-y-4">
+          <div class="bg-slate900 border border-teal-300/30 rounded-2xl p-4 text-sm text-slate-300 font-medium">
+            🧘 <span class="font-extrabold text-teal-300">Tiempo por postura:</span> cada postura tiene una duración fija con cuenta atrás. Al llegar a cero suena un tono suave (Web Audio API) y pasas sola a la siguiente postura de la secuencia.
+          </div>
+          <div class="flex flex-wrap items-center gap-2">
+            <span class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Tiempo por postura</span>
+            <div id="yogaHoldPicker" class="flex flex-wrap gap-1.5 bg-slate900 border border-slate800 rounded-xl p-1">
+              <button type="button" data-yoga-hold="0" class="px-3 py-1.5 rounded-lg text-xs font-extrabold transition-colors bg-teal-300 text-ink">Según secuencia</button>
+              <button type="button" data-yoga-hold="30" class="px-3 py-1.5 rounded-lg text-xs font-extrabold transition-colors text-slate-400">30 s</button>
+              <button type="button" data-yoga-hold="45" class="px-3 py-1.5 rounded-lg text-xs font-extrabold transition-colors text-slate-400">45 s</button>
+              <button type="button" data-yoga-hold="60" class="px-3 py-1.5 rounded-lg text-xs font-extrabold transition-colors text-slate-400">60 s</button>
+            </div>
+          </div>
+          <div id="yogaPresetGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+        </div>
+
+        <!-- Modalidad CrossFit / WOD -->
+        <div id="wodPanel" data-mode-panel="wod" class="hidden space-y-4">
+          <div class="bg-slate900 border border-orange-400/30 rounded-2xl p-4 text-sm text-slate-300 font-medium">
+            🏋️ <span class="font-extrabold text-orange-300">WOD con cronómetro global:</span> en <span class="font-bold text-red-400">AMRAP</span> corre una cuenta atrás y marcas cada ejercicio y ronda que completas; en <span class="font-bold text-orange-300">EMOM</span> cada minuto en punto suena un triple pitido y empieza la siguiente ronda.
+          </div>
+          <div>
+            <h3 class="font-extrabold text-white text-lg">🔁 AMRAP <span class="text-slate-500 text-sm font-semibold">· As Many Rounds As Possible</span></h3>
+            <div id="amrapGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-3"></div>
+          </div>
+          <div>
+            <h3 class="font-extrabold text-white text-lg">⏰ EMOM <span class="text-slate-500 text-sm font-semibold">· Every Minute On the Minute</span></h3>
+            <div id="emomGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-3"></div>
+          </div>
+        </div>
+
+        <p data-mode-panel="strength" class="text-xs text-slate-500 text-center font-medium">
+          Catálogo estructurado a partir de los datasets open-source
+          <a href="https://github.com/wrkout/exercises.json" target="_blank" rel="noopener noreferrer" class="underline decoration-slate-600 hover:text-duck">wrkout/exercises.json</a>
+          y
+          <a href="https://github.com/jctaborda/Calistenia" target="_blank" rel="noopener noreferrer" class="underline decoration-slate-600 hover:text-duck">jctaborda/Calistenia</a>.
+          <br class="hidden sm:block" />
+          Demostraciones animadas:
+          <a href="https://github.com/JahelCuadrado/ExerciseGymGifsDB" target="_blank" rel="noopener noreferrer" class="underline decoration-slate-600 hover:text-duck">JahelCuadrado/ExerciseGymGifsDB</a>
+          vía
+          <a href="https://www.jsdelivr.com/" target="_blank" rel="noopener noreferrer" class="underline decoration-slate-600 hover:text-duck">jsDelivr</a>.
+        </p>
+
+        <!-- Rutinas completadas: sección permanente en la vista de rutinas -->
+        <section id="completedRoutinesContainer" class="space-y-3 scroll-mt-24" aria-labelledby="completedRoutinesTitle">
+          <div class="flex items-end justify-between gap-3">
+            <div>
+              <h3 id="completedRoutinesTitle" class="font-extrabold text-white text-lg">Rutinas completadas</h3>
+              <p class="text-xs text-slate-500 font-medium mt-0.5">GIFs animados y duración real de cada sesión.</p>
+            </div>
+            <span id="completedRoutinesCount" class="text-xs text-slate-500 font-semibold">0 rutinas</span>
+          </div>
+          <div id="completedRoutinesEmpty" class="bg-slate900 border border-slate800 rounded-2xl p-8 text-center text-slate-400 font-medium">
+            Aún no has completado rutinas hoy. Inicia un entrenamiento guiado arriba y completa tu primera sesión. 🦆
+          </div>
+          <div id="completedRoutinesList" class="grid gap-4"></div>
+        </section>
+
+        <div data-mode-panel="strength" class="bg-slate900 border border-slate800 rounded-2xl p-5">
+          <h3 class="font-extrabold text-white text-lg">Temporizador de descanso</h3>
+          <p class="text-slate-400 text-sm mt-1 font-medium mb-4">Con aviso sonoro sintetizado mediante Web Audio API.</p>
+          <div class="flex items-center justify-center gap-3 mb-5">
+            <span id="restDisplay" class="text-6xl font-extrabold text-duck tabular-nums">00:30</span>
+          </div>
+          <div class="flex gap-2 justify-center mb-5">
+            <button id="restPreset30" class="px-5 py-2.5 rounded-xl bg-slate800 text-slate-200 font-bold text-sm hover:bg-[#334155] transition-colors">30s</button>
+            <button id="restPreset60" class="px-5 py-2.5 rounded-xl bg-slate800 text-slate-200 font-bold text-sm hover:bg-[#334155] transition-colors">60s</button>
+            <button id="restPreset90" class="px-5 py-2.5 rounded-xl bg-slate800 text-slate-200 font-bold text-sm hover:bg-[#334155] transition-colors">90s</button>
+          </div>
+          <div class="flex gap-2 justify-center">
+            <button id="restStartBtn" class="px-6 py-2.5 rounded-xl bg-duck text-ink font-extrabold text-sm hover:bg-duckDeep transition-colors">Iniciar</button>
+            <button id="restResetBtn" class="px-6 py-2.5 rounded-xl bg-slate800 text-slate-200 font-extrabold text-sm hover:bg-[#334155] transition-colors">Reiniciar</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= HISTORIAL ================= -->
+      <section id="view-history" class="hidden pt-6 space-y-6">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div>
+            <h2 class="text-2xl font-extrabold text-white">Historial de rutinas</h2>
+            <p class="text-slate-400 text-sm mt-1 font-medium" id="historyCount">0 rutinas completadas</p>
+          </div>
+          <button id="clearHistoryBtn" class="px-4 py-2.5 rounded-xl bg-red-500/10 border border-red-500/40 text-red-400 font-bold text-sm hover:bg-red-500/20 transition-colors">🗑 Borrar todo</button>
+        </div>
+        <div id="historyRoutineEmpty" class="hidden bg-slate900 border border-slate800 rounded-2xl p-10 text-center text-slate-400 font-medium">
+          Aún no hay rutinas completadas. Tus entrenamientos terminados aparecerán aquí con su tiempo cronometrado. 🦆
+        </div>
+        <div id="historyRoutineList" class="grid gap-4"></div>
+      </section>
+    </main>
+  </div>
+
+  <!-- ================= MODAL CHECKLIST ================= -->
+  <div id="checklistModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm transition-opacity duration-150">
+    <div class="bg-slate900 border border-slate800 rounded-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto shadow-2xl">
+      <span class="hidden border-yellow-400 bg-yellow-400/10 border-slate800 bg-slate800/60 text-emerald-400 accent-emerald-400" aria-hidden="true"></span>
+      <div class="sticky top-0 z-20 bg-slate900/95 backdrop-blur border-b border-slate800 px-5 py-4 flex items-start justify-between gap-3">
+        <div>
+          <h3 id="checklistName" class="font-extrabold text-white text-lg">Rutina</h3>
+          <p id="checklistMeta" class="text-xs text-slate-400 font-medium mt-0.5"></p>
+        </div>
+        <div class="flex items-center gap-2 shrink-0">
+          <span id="checklistTimer" class="px-2.5 py-1 rounded-lg bg-ink border border-slate800 text-xs font-extrabold text-duck tabular-nums" aria-label="Tiempo de la rutina">⏱ 00:00</span>
+          <button id="checklistCloseBtn" aria-label="Cerrar" class="text-slate-400 hover:text-white text-2xl leading-none px-2">✕</button>
+        </div>
+      </div>
+
+      <div class="px-5 py-3">
+        <div class="flex items-center justify-between mb-2">
+          <p class="text-xs font-bold text-slate-400 uppercase tracking-wider">Progreso</p>
+          <div class="flex items-center gap-3">
+            <button id="checklistResetBtn" class="text-[11px] font-bold text-slate-500 hover:text-duck transition-colors">Reiniciar</button>
+            <p class="text-xs font-extrabold text-duck" id="checklistPercent">0%</p>
+          </div>
+        </div>
+        <div class="h-2.5 w-full bg-slate800 rounded-full overflow-hidden mb-4">
+          <div id="checklistProgress" class="h-full bg-duck rounded-full transition-all duration-300" style="width: 0%"></div>
+        </div>
+
+        <div class="grid md:grid-cols-2 gap-5">
+          <div>
+            <div class="relative rounded-2xl overflow-hidden border border-slate800 bg-ink h-[220px] md:h-[260px] max-h-[220px] md:max-h-[260px]">
+              <img id="exerciseGif" alt="Demostración animada del ejercicio" class="w-full h-full object-contain transition-opacity duration-200 opacity-0" decoding="async" />
+              <div id="gifLoading" class="absolute inset-0 flex items-center justify-center gap-2 bg-slate900/80 text-xs font-bold text-slate-300">
+                <span class="w-5 h-5 rounded-full border-2 border-slate800 border-t-duck animate-spin"></span>
+                Cargando GIF…
+              </div>
+              <div id="exerciseGifFallback" class="hidden absolute inset-0 flex flex-col items-center justify-center gap-1 bg-slate900 px-4 text-center">
+                <span class="text-4xl">🏋️</span>
+                <p class="text-sm font-bold text-slate-300">No se pudo cargar el GIF</p>
+                <a id="exerciseGifLink" href="https://cdn.jsdelivr.net/gh/JahelCuadrado/ExerciseGymGifsDB@v1.1.0/" target="_blank" rel="noopener noreferrer" class="text-xs font-bold text-duck hover:underline">Abrir en jsDelivr</a>
+              </div>
+              <span id="currentExercisePosition" class="absolute top-3 right-3 px-2.5 py-1 rounded-lg bg-slate900/90 border border-slate800 text-[11px] font-bold text-slate-300">1 / 4</span>
+            </div>
+            <div class="mt-3" aria-live="polite">
+              <h4 id="currentExerciseName" class="text-lg font-extrabold text-white leading-tight"></h4>
+              <p id="currentExerciseDetail" class="text-xs font-bold text-duck mt-0.5"></p>
+              <p id="currentExerciseDesc" class="text-sm text-slate-400 font-medium mt-2 leading-relaxed"></p>
+            </div>
+            <div class="flex items-center justify-between gap-2 mt-4">
+              <button id="exercisePrevBtn" class="px-4 py-2.5 rounded-xl bg-slate800 text-slate-200 font-bold text-sm hover:bg-[#334155] transition-colors">← Anterior</button>
+              <button id="exerciseNextBtn" class="px-4 py-2.5 rounded-xl bg-slate800 text-slate-200 font-bold text-sm hover:bg-[#334155] transition-colors">Siguiente →</button>
+            </div>
+          </div>
+
+          <div>
+            <div class="flex items-center justify-between mb-2">
+              <p class="text-xs font-bold text-slate-400 uppercase tracking-wider">Ejercicios de la rutina</p>
+              <p class="text-[11px] text-slate-500 font-semibold">Marca al terminar</p>
+            </div>
+            <div id="checklistExercises" class="space-y-2"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="sticky bottom-0 z-20 bg-slate900/95 backdrop-blur px-5 py-3 border-t border-slate800 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <a href="https://github.com/JahelCuadrado/ExerciseGymGifsDB" target="_blank" rel="noopener noreferrer" class="text-[11px] text-slate-500 font-semibold hover:text-duck transition-colors">GIFs: JahelCuadrado/ExerciseGymGifsDB · jsDelivr</a>
+        <div class="flex items-center justify-end gap-2">
+          <button id="checklistDoneBtn" class="hidden px-6 py-2.5 rounded-xl bg-duck text-ink font-extrabold text-sm hover:bg-duckDeep transition-colors">✓ Completar rutina</button>
+          <button id="checklistCloseBtn2" class="px-6 py-2.5 rounded-xl bg-slate800 text-slate-200 font-bold text-sm hover:bg-[#334155] transition-colors">Cerrar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= MODAL ENTRENAMIENTO GUIADO ================= -->
+  <div id="guidedModal" class="hidden fixed inset-0 z-[60] flex items-center justify-center p-3 sm:p-6 bg-black/80 backdrop-blur-sm">
+    <div class="bg-slate900 border border-slate800 rounded-2xl w-full max-w-3xl max-h-[94vh] overflow-y-auto shadow-2xl">
+      <div class="sticky top-0 z-20 bg-slate900/95 backdrop-blur border-b border-slate800 px-4 sm:px-5 py-3 flex items-center justify-between gap-3">
+        <div class="min-w-0">
+          <p class="text-[10px] font-bold uppercase tracking-[0.2em] text-duck">Entrenamiento guiado</p>
+          <h3 id="guidedRoutineName" class="font-extrabold text-white text-lg truncate">Rutina</h3>
+        </div>
+        <div class="flex items-center gap-2 shrink-0">
+          <span id="guidedTotalTimer" class="px-2.5 py-1 rounded-lg bg-ink border border-slate800 text-sm font-extrabold text-duck tabular-nums" aria-label="Tiempo total de la rutina">⏱️ 00:00</span>
+          <button id="guidedCloseBtn" aria-label="Salir del entrenamiento" class="text-slate-400 hover:text-white text-2xl leading-none px-2">✕</button>
+        </div>
+      </div>
+
+      <div class="px-4 sm:px-5 py-4">
+        <div class="flex items-center justify-between gap-3 mb-2">
+          <span id="guidedProgressLabel" class="text-[11px] font-bold uppercase tracking-wider text-slate-500">0 de 0 series</span>
+          <span id="guidedPhaseBadge" class="px-2 py-1 rounded-full bg-duck/10 border border-duck/30 text-[10px] font-extrabold uppercase tracking-wider text-duck">Ejercicio</span>
+        </div>
+        <div class="h-2 w-full bg-slate800 rounded-full overflow-hidden mb-4" id="guidedProgressTrack" role="progressbar" aria-label="Progreso del entrenamiento" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+          <div id="guidedProgressBar" class="h-full bg-duck rounded-full transition-all duration-300" style="width: 0%"></div>
+        </div>
+
+        <!-- Fase: ejercicio actual -->
+        <div id="guidedExercisePanel">
+          <div class="grid md:grid-cols-2 gap-5 items-start">
+            <div>
+              <div class="relative rounded-2xl overflow-hidden border border-slate800 bg-ink h-[240px] sm:h-[300px] md:h-[340px]">
+                <img id="guidedGif" alt="Demostración animada del ejercicio" class="w-full h-full object-contain transition-opacity duration-200 opacity-0" decoding="async" />
+                <div id="guidedGifLoading" class="absolute inset-0 flex items-center justify-center gap-2 bg-slate900/80 text-xs font-bold text-slate-300">
+                  <span class="w-5 h-5 rounded-full border-2 border-slate800 border-t-duck animate-spin"></span>
+                  Cargando GIF…
+                </div>
+                <div id="guidedGifFallback" class="hidden absolute inset-0 flex flex-col items-center justify-center gap-1 bg-slate900 px-4 text-center">
+                  <span class="text-4xl">🏋️</span>
+                  <p class="text-sm font-bold text-slate-300">No se pudo cargar el GIF</p>
+                  <a href="https://cdn.jsdelivr.net/gh/JahelCuadrado/ExerciseGymGifsDB@v1.1.0/" target="_blank" rel="noopener noreferrer" class="text-xs font-bold text-duck hover:underline">Abrir en jsDelivr</a>
+                </div>
+                <span id="guidedExerciseCounter" class="absolute top-3 left-3 px-2.5 py-1 rounded-lg bg-slate900/90 border border-slate800 text-[11px] font-bold text-slate-300">Ejercicio 1 de 4</span>
+              </div>
+            </div>
+
+            <div class="min-w-0">
+              <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500">Ejercicio actual</p>
+              <h4 id="guidedExerciseName" class="text-2xl font-extrabold text-white leading-tight mt-1"></h4>
+              <p id="guidedExerciseDetail" class="text-sm font-extrabold text-duck mt-1"></p>
+              <p id="guidedExerciseDesc" class="text-sm text-slate-400 font-medium mt-2 leading-relaxed"></p>
+
+              <div class="mt-5 rounded-2xl bg-ink border border-slate800 p-4">
+                <div class="flex items-end justify-between gap-3">
+                  <div>
+                    <p class="text-[10px] font-bold uppercase tracking-wider text-slate-500">Serie actual</p>
+                    <p id="guidedSetCounter" class="text-2xl font-extrabold text-white mt-0.5">Serie 1 de 4</p>
+                  </div>
+                  <p id="guidedSetTarget" class="text-xs font-bold text-slate-400 text-right"></p>
+                </div>
+                <div id="guidedSetDots" class="flex flex-wrap gap-1.5 mt-3" aria-label="Series del ejercicio"></div>
+                <button id="guidedCompleteSetBtn" class="w-full mt-4 px-5 py-3.5 rounded-xl bg-duck text-ink font-extrabold text-base hover:bg-duckDeep transition-colors">✓ Completar Serie 1</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Fase: descanso automático -->
+        <div id="guidedRestPanel" class="hidden">
+          <div class="grid md:grid-cols-2 gap-5 items-center">
+            <div class="rounded-2xl border border-duck/30 bg-duck/5 p-6 text-center">
+              <p class="text-[11px] font-bold uppercase tracking-[0.2em] text-duck">Descanso</p>
+              <p id="guidedRestCountdown" class="text-7xl font-extrabold text-duck tabular-nums mt-2">00:30</p>
+              <p id="guidedRestLabel" class="text-sm text-slate-400 font-semibold mt-2">Recupera el aliento</p>
+              <div class="h-2 w-full bg-slate800 rounded-full overflow-hidden mt-4">
+                <div id="guidedRestBar" class="h-full bg-duck rounded-full transition-all duration-200" style="width: 100%"></div>
+              </div>
+            </div>
+            <div>
+              <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500">A continuación</p>
+              <h4 id="guidedNextName" class="text-xl font-extrabold text-white mt-1"></h4>
+              <p id="guidedNextDetail" class="text-sm font-bold text-duck mt-1"></p>
+              <p id="guidedNextMeta" class="text-sm text-slate-400 font-medium mt-2"></p>
+              <p class="text-xs text-slate-500 font-medium mt-4">🔔 Pitido sintetizado al terminar el descanso.</p>
+              <div class="flex flex-wrap gap-2 mt-4">
+                <button id="guidedSkipRestBtn" class="px-5 py-3 rounded-xl bg-duck text-ink font-extrabold text-sm hover:bg-duckDeep transition-colors">Omitir descanso →</button>
+                <button id="guidedAddRestBtn" class="px-5 py-3 rounded-xl bg-slate800 text-slate-200 font-bold text-sm hover:bg-[#334155] transition-colors">+15 s</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Fase: resumen final -->
+        <div id="guidedDonePanel" class="hidden text-center py-4">
+          <span class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-duck/15 border border-duck/40 text-3xl">🎯</span>
+          <h4 class="text-2xl font-extrabold text-white mt-3">¡Rutina completada!</h4>
+          <p id="guidedDoneName" class="text-sm text-slate-400 font-semibold mt-1"></p>
+          <div class="grid grid-cols-3 gap-2 mt-5 max-w-md mx-auto">
+            <div class="bg-ink border border-slate800 rounded-xl p-3">
+              <p class="text-[10px] uppercase tracking-wider text-slate-500 font-bold">Tiempo</p>
+              <p id="guidedDoneTime" class="font-extrabold text-duck text-lg tabular-nums mt-1">00:00</p>
+            </div>
+            <div class="bg-ink border border-slate800 rounded-xl p-3">
+              <p class="text-[10px] uppercase tracking-wider text-slate-500 font-bold">Series</p>
+              <p id="guidedDoneSets" class="font-extrabold text-duck text-lg mt-1">0</p>
+            </div>
+            <div class="bg-ink border border-slate800 rounded-xl p-3">
+              <p class="text-[10px] uppercase tracking-wider text-slate-500 font-bold">Calorías</p>
+              <p id="guidedDoneKcal" class="font-extrabold text-duck text-lg mt-1">0</p>
+            </div>
+          </div>
+          <div id="guidedDoneSummary" class="mt-4 max-w-md mx-auto space-y-1.5 text-left"></div>
+          <div class="flex flex-col sm:flex-row gap-2 justify-center mt-5">
+            <button id="guidedViewHistoryBtn" class="px-5 py-3 rounded-xl bg-duck text-ink font-extrabold text-sm hover:bg-duckDeep transition-colors">Ver rutinas completadas ↓</button>
+            <button id="guidedDoneCloseBtn" class="px-5 py-3 rounded-xl bg-slate800 text-slate-200 font-bold text-sm hover:bg-[#334155] transition-colors">Cerrar</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="px-4 sm:px-5 py-3 border-t border-slate800 text-[11px] text-slate-500 font-semibold">
+        GIFs: JahelCuadrado/ExerciseGymGifsDB · jsDelivr · Sonido: Web Audio API
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= REPRODUCTOR HIIT / TABATA ================= -->
+  <div id="hiitModal" class="hidden fixed inset-0 z-[70] flex flex-col" data-phase="prep" data-paused="false" role="dialog" aria-modal="true" aria-labelledby="hiitRoutineName">
+    <div class="flex items-center justify-between gap-3 px-4 sm:px-6 py-3 bg-black/25">
+      <div class="min-w-0">
+        <p class="text-[10px] font-bold uppercase tracking-[0.2em] opacity-80">⚡ HIIT / Tabata</p>
+        <h3 id="hiitRoutineName" class="font-extrabold text-lg truncate">HIIT</h3>
+      </div>
+      <div class="flex items-center gap-2 shrink-0">
+        <span id="hiitTotalTimer" class="px-2.5 py-1 rounded-lg bg-black/30 text-sm font-extrabold tabular-nums" aria-label="Tiempo total de la sesión">⏱️ 00:00</span>
+        <button id="hiitCloseBtn" type="button" aria-label="Salir del HIIT" class="text-2xl leading-none px-2 opacity-80 hover:opacity-100">✕</button>
+      </div>
+    </div>
+
+    <div id="hiitActivePanel" class="flex-1 overflow-y-auto flex flex-col items-center justify-center text-center px-4 py-6 gap-3 sm:gap-4">
+      <p id="hiitPhaseLabel" class="font-black uppercase tracking-tight leading-none text-5xl sm:text-7xl md:text-8xl">¡PREPÁRATE!</p>
+      <p id="hiitCountdown" class="font-black tabular-nums leading-none text-[6.5rem] sm:text-[10rem] md:text-[12rem]">00:10</p>
+      <p id="hiitRoundLabel" class="text-xl sm:text-3xl font-extrabold">Ronda 1 de 8</p>
+      <div class="w-full max-w-xl h-3 rounded-full bg-black/25 overflow-hidden" role="progressbar" aria-label="Tiempo restante del intervalo">
+        <div id="hiitPhaseBar" class="h-full rounded-full bg-current" style="width: 100%"></div>
+      </div>
+      <div class="flex items-center gap-4 bg-black/25 rounded-2xl p-3 pr-5 w-full max-w-xl text-left">
+        <div class="w-24 h-24 sm:w-28 sm:h-28 rounded-xl bg-white overflow-hidden shrink-0">
+          <img id="hiitGif" alt="" class="w-full h-full object-contain" decoding="async" />
+        </div>
+        <div class="min-w-0">
+          <p id="hiitExerciseCaption" class="text-[11px] font-bold uppercase tracking-wider opacity-80">A continuación</p>
+          <p id="hiitExerciseName" class="text-xl sm:text-2xl font-extrabold leading-tight"></p>
+          <p id="hiitExerciseMeta" class="text-sm font-semibold opacity-80 mt-1"></p>
+        </div>
+      </div>
+      <div class="flex flex-wrap gap-2 justify-center mt-1">
+        <button id="hiitPauseBtn" type="button" class="px-6 py-3 rounded-xl bg-black/30 font-extrabold hover:bg-black/45 transition-colors">⏸ Pausar</button>
+        <button id="hiitSkipBtn" type="button" class="px-6 py-3 rounded-xl bg-black/30 font-extrabold hover:bg-black/45 transition-colors">Saltar fase ⏭</button>
+      </div>
+      <p class="text-xs font-semibold opacity-75">🔔 Tono agudo = trabajo · doble pitido = descanso · pitido largo = fin · Espacio: pausar</p>
+    </div>
+
+    <div id="hiitDonePanel" class="hidden flex-1 overflow-y-auto flex flex-col items-center justify-center text-center px-4 py-6">
+      <span class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-lime-400/15 border border-lime-400/40 text-3xl">⚡</span>
+      <h4 class="text-3xl font-extrabold text-white mt-3">¡HIIT completado!</h4>
+      <p id="hiitDoneName" class="text-sm text-slate-400 font-semibold mt-1"></p>
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-6 w-full max-w-2xl">
+        <div class="bg-slate900 border border-slate800 rounded-xl p-3">
+          <p class="text-[10px] uppercase tracking-wider text-slate-500 font-bold">Tiempo total</p>
+          <p id="hiitDoneTime" class="font-extrabold text-duck text-xl tabular-nums mt-1">00:00</p>
+        </div>
+        <div class="bg-slate900 border border-slate800 rounded-xl p-3">
+          <p class="text-[10px] uppercase tracking-wider text-slate-500 font-bold">Alta intensidad</p>
+          <p id="hiitDoneWork" class="font-extrabold text-lime-300 text-xl tabular-nums mt-1">00:00</p>
+        </div>
+        <div class="bg-slate900 border border-slate800 rounded-xl p-3">
+          <p class="text-[10px] uppercase tracking-wider text-slate-500 font-bold">Rondas</p>
+          <p id="hiitDoneRounds" class="font-extrabold text-duck text-xl mt-1">0/0</p>
+        </div>
+        <div class="bg-slate900 border border-slate800 rounded-xl p-3">
+          <p class="text-[10px] uppercase tracking-wider text-slate-500 font-bold">Calorías</p>
+          <p id="hiitDoneKcal" class="font-extrabold text-duck text-xl mt-1">0 kcal</p>
+        </div>
+      </div>
+      <p class="text-[11px] text-slate-500 font-medium mt-3">Estimación: ~12 kcal/min en trabajo de alta intensidad y ~4 kcal/min en descanso.</p>
+      <div class="flex flex-col sm:flex-row gap-2 justify-center mt-6">
+        <button id="hiitViewHistoryBtn" type="button" class="px-5 py-3 rounded-xl bg-duck text-ink font-extrabold text-sm hover:bg-duckDeep transition-colors">📜 Ver historial</button>
+        <button id="hiitRepeatBtn" type="button" class="px-5 py-3 rounded-xl bg-lime-400 text-ink font-extrabold text-sm hover:bg-lime-300 transition-colors">↻ Repetir</button>
+        <button id="hiitDoneCloseBtn" type="button" class="px-5 py-3 rounded-xl bg-slate800 text-slate-200 font-bold text-sm hover:bg-[#334155] transition-colors">Cerrar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= REPRODUCTOR YOGA / WOD ================= -->
+  <div id="flowModal" class="hidden fixed inset-0 z-[70] flex flex-col" data-kind="yoga" data-phase="prep" data-paused="false" role="dialog" aria-modal="true" aria-labelledby="flowRoutineName">
+    <div class="flex items-center justify-between gap-3 px-4 sm:px-6 py-3 bg-black/25">
+      <div class="min-w-0">
+        <p id="flowKindLabel" class="text-[10px] font-bold uppercase tracking-[0.2em] opacity-80">🧘 Yoga / Movilidad</p>
+        <h3 id="flowRoutineName" class="font-extrabold text-lg truncate"></h3>
+      </div>
+      <div class="flex items-center gap-2 shrink-0">
+        <span id="flowTotalTimer" class="px-2.5 py-1 rounded-lg bg-black/30 text-sm font-extrabold tabular-nums" aria-label="Tiempo total de la sesión">⏱️ 00:00</span>
+        <button id="flowCloseBtn" type="button" aria-label="Salir del entrenamiento" class="text-2xl leading-none px-2 opacity-80 hover:opacity-100">✕</button>
+      </div>
+    </div>
+
+    <div id="flowActivePanel" class="flex-1 overflow-y-auto flex flex-col items-center text-center px-4 py-6 gap-3 sm:gap-4">
+      <p id="flowPhaseLabel" class="font-black uppercase tracking-tight leading-none text-5xl sm:text-7xl md:text-8xl">¡PREPÁRATE!</p>
+      <p id="flowCountdown" class="font-black tabular-nums leading-none text-[6.5rem] sm:text-[10rem] md:text-[12rem]">00:10</p>
+      <p id="flowStepLabel" class="text-xl sm:text-3xl font-extrabold"></p>
+      <div class="w-full max-w-xl h-3 rounded-full bg-black/25 overflow-hidden" role="progressbar" aria-label="Tiempo restante">
+        <div id="flowBar" class="h-full rounded-full bg-current" style="width: 100%"></div>
+      </div>
+      <div id="flowAmrapPanel" class="hidden w-full max-w-xl bg-black/25 rounded-2xl p-4">
+        <div class="flex items-center justify-between gap-3">
+          <button id="flowRoundMinus" type="button" aria-label="Deshacer" class="w-14 h-14 rounded-xl bg-black/30 text-3xl font-black hover:bg-black/45 transition-colors disabled:opacity-40">−</button>
+          <div class="text-center">
+            <p class="text-[11px] font-bold uppercase tracking-wider opacity-80">Rondas completadas</p>
+            <p id="flowRoundCount" class="text-6xl font-black tabular-nums leading-none mt-1">0</p>
+            <p id="flowRepsExtra" class="text-xs font-semibold opacity-80 mt-1"></p>
+          </div>
+          <button id="flowRoundPlus" type="button" class="h-14 px-4 rounded-xl bg-white text-red-600 font-black hover:bg-white/90 transition-colors disabled:opacity-40">+1 ronda</button>
+        </div>
+        <div id="flowAmrapList" class="grid gap-2 mt-4 text-left"></div>
+      </div>
+      <div id="flowExerciseCard" class="flex items-center gap-4 bg-black/25 rounded-2xl p-3 pr-5 w-full max-w-xl text-left">
+        <div class="w-24 h-24 sm:w-28 sm:h-28 rounded-xl bg-white overflow-hidden shrink-0">
+          <img id="flowGif" alt="" class="w-full h-full object-contain" decoding="async" />
+        </div>
+        <div class="min-w-0">
+          <p id="flowExerciseCaption" class="text-[11px] font-bold uppercase tracking-wider opacity-80"></p>
+          <p id="flowExerciseName" class="text-xl sm:text-2xl font-extrabold leading-tight"></p>
+          <p id="flowExerciseMeta" class="text-sm font-semibold opacity-80 mt-1"></p>
+        </div>
+      </div>
+      <div class="flex flex-wrap gap-2 justify-center mt-1">
+        <button id="flowPauseBtn" type="button" class="px-6 py-3 rounded-xl bg-black/30 font-extrabold hover:bg-black/45 transition-colors">⏸ Pausar</button>
+        <button id="flowSkipBtn" type="button" class="px-6 py-3 rounded-xl bg-black/30 font-extrabold hover:bg-black/45 transition-colors">Siguiente ⏭</button>
+      </div>
+      <p id="flowHint" class="text-xs font-semibold opacity-75"></p>
+    </div>
+
+    <div id="flowDonePanel" class="hidden flex-1 overflow-y-auto flex flex-col items-center justify-center text-center px-4 py-6">
+      <span id="flowDoneIcon" class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-white/5 border border-white/15 text-3xl">🧘</span>
+      <h4 id="flowDoneTitle" class="text-3xl font-extrabold text-white mt-3">¡Completado!</h4>
+      <p id="flowDoneName" class="text-sm text-slate-400 font-semibold mt-1"></p>
+      <div id="flowDoneStats" class="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-6 w-full max-w-2xl"></div>
+      <p id="flowDoneNote" class="text-[11px] text-slate-500 font-medium mt-3"></p>
+      <div class="flex flex-col sm:flex-row gap-2 justify-center mt-6">
+        <button id="flowViewHistoryBtn" type="button" class="px-5 py-3 rounded-xl bg-duck text-ink font-extrabold text-sm hover:bg-duckDeep transition-colors">📜 Ver historial</button>
+        <button id="flowRepeatBtn" type="button" class="px-5 py-3 rounded-xl bg-slate800 text-slate-100 font-extrabold text-sm hover:bg-[#334155] transition-colors">↻ Repetir</button>
+        <button id="flowDoneCloseBtn" type="button" class="px-5 py-3 rounded-xl bg-slate800 text-slate-200 font-bold text-sm hover:bg-[#334155] transition-colors">Cerrar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= AVISO ================= -->
+  <div id="toast" class="hidden fixed bottom-6 left-1/2 -translate-x-1/2 z-[100] px-5 py-3 rounded-xl bg-duck text-ink font-bold text-sm shadow-xl"></div>
+
+  <script>
+    // ============================================================
+    //  DuckGym — Rutinas + Entrenamiento guiado + Estadísticas
+    // ============================================================
+
+    const $ = (s) => document.querySelector(s);
+    const esc = (s) => String(s === null || s === undefined ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    const pad2 = (n) => String(n).padStart(2, '0');
+    const fmtDuration = (sec) => { const s = Math.max(0, Math.floor(sec || 0)); const h = Math.floor(s / 3600); const m = Math.floor((s % 3600) / 60); const ss = s % 60; return `${pad2(h)}:${pad2(m)}:${pad2(ss)}`; };
+    const fmtClock = (sec) => { const s = Math.max(0, Math.floor(sec || 0)); const m = Math.floor(s / 60); const ss = Math.floor(s % 60); return `${pad2(m)}:${pad2(ss)}`; };
+    const fmtRoutineClock = (sec) => { const s = Math.max(0, Math.floor(sec || 0)); const h = Math.floor(s / 3600); const m = Math.floor((s % 3600) / 60); const ss = s % 60; return h > 0 ? `${h}:${pad2(m)}:${pad2(ss)}` : `${pad2(m)}:${pad2(ss)}`; };
+    const fmtRoutineDurationText = (sec) => {
+      const s = Math.max(0, Math.floor(sec || 0));
+      if (!s) return 'Sin tiempo registrado';
+      const m = Math.floor(s / 60);
+      const ss = s % 60;
+      if (!m) return `${ss} s`;
+      return ss ? `${m} min ${ss} s` : `${m} min`;
+    };
+    const fmtHistoryDate = (iso) => {
+      const d = new Date(iso);
+      if (Number.isNaN(d.getTime())) return 'Fecha desconocida';
+      return d.toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' }) + ' · ' + d.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    };
+    const routineHistoryTitle = (h) => (h && (h.name || h.title)) || 'Rutina';
+    const routineHistoryDate = (h) => (h && (h.date || h.timestamp)) || '';
+    const num = (n, d = 2) => Number(n || 0).toFixed(d).replace('.', ',');
+
+    // Algoritmo SHA-256 liviano para contexto HTTP no seguro (fallback)
+    // legacy = true reproduce la versión anterior (defectuosa) solo para validar cuentas antiguas
+    function sha256Fallback(input, legacy = false) {
+      // Codifica en UTF-8 para producir el mismo hash que Web Crypto (TextEncoder)
+      const ascii = legacy ? String(input) : unescape(encodeURIComponent(String(input)));
+      function rightRotate(value, amount) {
+        return (value >>> amount) | (value << (32 - amount));
+      }
+      const mathPow = Math.pow;
+      const maxWord = mathPow(2, 32);
+      let result = '';
+      let i, j;
+      const words = [];
+      const asciiBitLength = ascii.length * 8;
+      const hash = [0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a, 0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19];
+      const k = [0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
+                 0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3, 0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174,
+                 0xe49b69c1, 0xefbe4786, 0x0fc19dc6, 0x240ca1cc, 0x2de92c6f, 0x4a7484aa, 0x5cb0a9dc, 0x76f988da,
+                 0x983e5152, 0xa831c66d, 0xb00327c8, 0xbf597fc7, 0xc6e00bf3, 0xd5a79147, 0x06ca6351, 0x14292967,
+                 0x27b70a85, 0x2e1b2138, 0x4d2c6dfc, 0x53380d13, 0x650a7354, 0x766a0abb, 0x81c2c92e, 0x92722c85,
+                 0xa2bfe8a1, 0xa81a664b, 0xc24b8b70, 0xc76c51a3, 0xd192e819, 0xd6990624, 0xf40e3585, 0x106aa070,
+                 0x19a4c116, 0x1e376c08, 0x2748774c, 0x34b0bcb5, 0x391c0cb3, 0x4ed8aa4a, 0x5b9cca4f, 0x682e6ff3,
+                 0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208, 0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2];
+      let asciiPlus = ascii + '\x80';
+      while (asciiPlus.length % 64 - 56) asciiPlus += '\x00';
+      for (i = 0; i < asciiPlus.length; i++) {
+        j = asciiPlus.charCodeAt(i);
+        words[i >> 2] |= j << ((3 - i % 4) * 8);
+      }
+      words[words.length] = ((asciiBitLength / maxWord) | 0);
+      words[words.length] = (asciiBitLength | 0);
+      for (j = 0; j < words.length;) {
+        const w = words.slice(j, j += 16);
+        const oldHash = hash.slice(0);
+        for (i = 0; i < 64; i++) {
+          const w15 = w[i - 15], w2 = w[i - 2];
+          const a = hash[0], b = hash[1], c = hash[2], d = hash[3], e = hash[4], f = hash[5], g = hash[6], h = hash[7];
+          const temp1 = h
+            + (rightRotate(e, 6) ^ rightRotate(e, 11) ^ rightRotate(e, 25))
+            + ((e & f) ^ (~e & g))
+            + k[i]
+            + (w[i] = (i < 16) ? w[i] : (
+              w[i - 16]
+              + (rightRotate(w15, 7) ^ rightRotate(w15, 18) ^ (w15 >>> 3))
+              + w[i - 7]
+              + (rightRotate(w2, 17) ^ rightRotate(w2, 19) ^ (w2 >>> 10))
+            ) | 0);
+          const temp2 = (rightRotate(a, 2) ^ rightRotate(a, 13) ^ rightRotate(a, 22))
+            + ((a & b) ^ (a & c) ^ (b & c));
+          hash[0] = (temp1 + temp2) | 0;
+          hash[1] = a;
+          hash[2] = b;
+          hash[3] = c;
+          hash[4] = ((legacy ? e : d) + temp1) | 0;
+          hash[5] = legacy ? f : e;
+          hash[6] = legacy ? g : f;
+          hash[7] = legacy ? h : g;
+        }
+        for (i = 0; i < 8; i++) hash[i] = (hash[i] + oldHash[i]) | 0;
+      }
+      for (i = 0; i < 8; i++) {
+        for (j = 3; j >= 0; j--) {
+          const b = (hash[i] >> (j * 8)) & 255;
+          result += (b < 16 ? '0' : '') + b.toString(16);
+        }
+      }
+      return result;
+    }
+
+    // Función híbrida de hash SHA-256 con fallback para HTTP
+    async function hashPassword(password) {
+      // Si estamos en HTTPS o localhost con Web Crypto API disponible:
+      if (window.crypto && window.crypto.subtle) {
+        try {
+          const msgUint8 = new TextEncoder().encode(password);
+          const hashBuffer = await window.crypto.subtle.digest('SHA-256', msgUint8);
+          const hashArray = Array.from(new Uint8Array(hashBuffer));
+          return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+        } catch (e) {
+          console.warn("Error en Crypto API, usando fallback.", e);
+        }
+      }
+
+      // Algoritmo de respaldo de SHA-256 ligero para entornos HTTP:
+      return sha256Fallback(password);
+    }
+
+    // ============ ESTADO ============
+    let currentUser = localStorage.getItem('duckgym_session') || null;
+    let routineFilter = 'all';
+    let selectedRoutine = null;
+    let currentExerciseIdx = 0;
+    let routineSessionStart = 0;
+    let checklistTimerId = null;
+    let checklistCloseTimer = null;
+    let chart = null;
+    let rest = { total: 30, remaining: 30, running: false, endAt: 0, interval: null };
+    let sharedAudioCtx = null;
+    let guided = {
+      active: false, finished: false, routine: null, exercises: [], exerciseIndex: 0, setNumber: 0,
+      phase: 'idle', startedAt: 0, totalSets: 0, completedSets: 0, restKind: 'series',
+      restTotal: 30, restRemaining: 30, restEndAt: 0, restInterval: null, tickInterval: null,
+      lastEntry: null,
+    };
+
+    // GIFs animados servidos desde jsDelivr (repositorio JahelCuadrado/ExerciseGymGifsDB)
+    const GIF_BASE = 'https://cdn.jsdelivr.net/gh/JahelCuadrado/ExerciseGymGifsDB@v1.1.0/';
+
+    // Rutinas basadas en wrkout/exercises.json y jctaborda/Calistenia
+    const ROUTINES = [
+      {
+        id: 'gym-empuje', category: 'gym', emoji: '💪', name: 'Empuje / Pectoral y Hombro', level: 'Intermedio', minutes: 50,
+        source: 'wrkout/exercises.json', sourceUrl: 'https://github.com/wrkout/exercises.json',
+        exercises: [
+          { name: 'Press de banca con barra', detail: '4 series × 10 reps', gif: GIF_BASE + 'pectorals/barbell-bench-press.gif', desc: 'Tumbado en el banco, baja la barra al pecho con control y empuja hasta extender los codos sin bloquear.' },
+          { name: 'Press militar con mancuernas', detail: '3 series × 12 reps', gif: GIF_BASE + 'delts/dumbbell-seated-shoulder-press.gif', desc: 'Sentado o de pie, empuja las mancuernas sobre la cabeza manteniendo el core firme y los codos alineados.' },
+          { name: 'Fondos en paralelas', detail: '3 series × 10 reps', gif: GIF_BASE + 'pectorals/chest-dip.gif', desc: 'Sujétate en las paralelas, desciende flexionando los codos hasta unos 90° y empuja con el pecho.' },
+          { name: 'Aperturas', detail: '3 series × 12 reps', gif: GIF_BASE + 'pectorals/dumbbell-fly.gif', desc: 'Tumbado, abre los brazos con mancuernas en un arco amplio y júntalas al frente sintiendo el pectoral.' },
+        ],
+      },
+      {
+        id: 'gym-traccion', category: 'gym', emoji: '🧲', name: 'Tracción / Espalda y Bíceps', level: 'Intermedio', minutes: 45,
+        source: 'wrkout/exercises.json', sourceUrl: 'https://github.com/wrkout/exercises.json',
+        exercises: [
+          { name: 'Dominadas supinas', detail: '4 series × 6 reps', gif: GIF_BASE + 'lats/chin-up.gif', desc: 'Agarre supino al ancho de los hombros; tira del cuerpo hasta que la barbilla supere la barra.' },
+          { name: 'Remo con barra', detail: '4 series × 10 reps', gif: GIF_BASE + 'upper-back/barbell-bent-over-row.gif', desc: 'Con el torso inclinado y la espalda neutra, lleva la barra al abdomen apretando los omóplatos.' },
+          { name: 'Jalón al pecho', detail: '3 series × 12 reps', gif: GIF_BASE + 'lats/cable-lat-pulldown-full-range-of-motion.gif', desc: 'Sentado, tira de la barra hacia el pecho manteniendo el torso alto y los codos hacia abajo.' },
+          { name: 'Curl de bíceps', detail: '3 series × 12 reps', gif: GIF_BASE + 'biceps/barbell-curl.gif', desc: 'De pie, flexiona los codos para subir la barra sin balanceo y baja de forma controlada.' },
+        ],
+      },
+      {
+        id: 'gym-pierna', category: 'gym', emoji: '🦵', name: 'Pierna / Cadenas Musculares', level: 'Intermedio', minutes: 55,
+        source: 'wrkout/exercises.json', sourceUrl: 'https://github.com/wrkout/exercises.json',
+        exercises: [
+          { name: 'Sentadillas traseras', detail: '4 series × 10 reps', gif: GIF_BASE + 'glutes/barbell-full-squat.gif', desc: 'Con la barra sobre los trapecios, baja rompiendo cadera y rodillas hasta paralelo y empuja con los talones.' },
+          { name: 'Peso muerto rumano', detail: '3 series × 10 reps', gif: GIF_BASE + 'glutes/barbell-romanian-deadlift.gif', desc: 'Piernas semirrígidas, lleva la cadera atrás bajando la barra por las piernas y sube apretando glúteos.' },
+          { name: 'Prensa 45°', detail: '3 series × 12 reps', gif: GIF_BASE + 'glutes/sled-45-leg-press.gif', desc: 'Empuja la plataforma con los pies sin bloquear las rodillas y controla el descenso.' },
+          { name: 'Zancadas', detail: '3 series × 12 reps por pierna', gif: GIF_BASE + 'glutes/barbell-lunge.gif', desc: 'Da un paso al frente, baja la rodilla trasera y empuja para volver; alterna las piernas.' },
+        ],
+      },
+      {
+        id: 'cali-parques', category: 'outdoor', emoji: '🏞️', name: 'Básicos de Parques', level: 'Principiante', minutes: 35,
+        source: 'jctaborda/Calistenia', sourceUrl: 'https://github.com/jctaborda/Calistenia',
+        exercises: [
+          { name: 'Dominadas estrictas', detail: '4 series × 6 reps', gif: GIF_BASE + 'lats/pull-up.gif', desc: 'Agarre prono y sin balanceo; sube hasta pasar la barbilla y baja con control.' },
+          { name: 'Fondos en barras paralelas', detail: '3 series × 10 reps', gif: GIF_BASE + 'pectorals/wide-grip-chest-dip-on-high-parallel-bars.gif', desc: 'En barras altas, desciende hasta que los hombros queden bajo los codos y empuja para subir.' },
+          { name: 'Flexiones diamante', detail: '3 series × 12 reps', gif: GIF_BASE + 'triceps/diamond-push-up.gif', desc: 'Manos juntas formando un diamante bajo el pecho; baja y empuja con el cuerpo alineado.' },
+          { name: 'Dominadas australianas', detail: '3 series × 10 reps', gif: GIF_BASE + 'upper-back/inverted-row.gif', desc: 'Con barra baja y cuerpo inclinado, tira del pecho hacia la barra manteniendo el core firme.' },
+        ],
+      },
+      {
+        id: 'cali-core', category: 'outdoor', emoji: '🎯', name: 'Core y Zona Media', level: 'Intermedio', minutes: 25,
+        source: 'jctaborda/Calistenia', sourceUrl: 'https://github.com/jctaborda/Calistenia',
+        exercises: [
+          { name: 'Elevaciones de piernas colgado', detail: '3 series × 12 reps', gif: GIF_BASE + 'abs/hanging-leg-raise.gif', desc: 'Colgado de la barra, eleva las piernas rectas hasta la altura de la cadera sin balancearte.' },
+          { name: 'Plancha isométrica', detail: '3 series × 30-60 s', gif: GIF_BASE + 'abs/weighted-front-plank.gif', desc: 'Apoya antebrazos y puntas de pies; mantén el cuerpo en línea recta y el core activado.' },
+          { name: 'Sit-ups', detail: '3 series × 20 reps', gif: GIF_BASE + 'abs/sit-up-v-2.gif', desc: 'Tumbado, flexiona rodillas y cadera para subir el torso; baja controlado sin tirar del cuello.' },
+          { name: 'L-Sit', detail: '3 series × 20-30 s', gif: GIF_BASE + 'abs/l-sit-on-floor.gif', desc: 'Sobre paralelas o el suelo, eleva las piernas rectas formando una L y mantén la posición.' },
+        ],
+      },
+      {
+        id: 'cali-hiit', category: 'outdoor', emoji: '🔥', name: 'Rutina HIIT Cardio', level: 'Avanzado', minutes: 20,
+        source: 'jctaborda/Calistenia', sourceUrl: 'https://github.com/jctaborda/Calistenia',
+        exercises: [
+          { name: 'Burpees', detail: '4 series × 15 reps', gif: GIF_BASE + 'cardio/burpee.gif', desc: 'Flexión, salto a pie y salto vertical; aterriza suave y repite con ritmo constante.' },
+          { name: 'Jumping Jacks', detail: '3 series × 45 s', gif: GIF_BASE + 'cardio/jack-jump-male.gif', desc: 'Salta abriendo piernas y brazos, cierra y repite manteniendo un ritmo ágil.' },
+          { name: 'Mountain Climbers', detail: '3 series × 40 reps', gif: GIF_BASE + 'cardio/mountain-climber.gif', desc: 'En plancha alta, lleva las rodillas al pecho alternando rápido sin elevar la cadera.' },
+        ],
+      },
+    ];
+
+    // HIIT / Tabata: intervalos de trabajo y descanso con ejercicios en rotación
+    const HIIT_EXERCISES = {
+      burpee: { name: 'Burpees', gif: GIF_BASE + 'cardio/burpee.gif' },
+      jumpSquat: { name: 'Sentadillas con salto', gif: GIF_BASE + 'glutes/jump-squat.gif' },
+      pushUp: { name: 'Flexiones', gif: GIF_BASE + 'pectorals/push-up.gif' },
+      climber: { name: 'Mountain Climbers', gif: GIF_BASE + 'cardio/mountain-climber.gif' },
+      jacks: { name: 'Jumping Jacks', gif: GIF_BASE + 'cardio/jack-jump-male.gif' },
+      lunge: { name: 'Zancadas', gif: GIF_BASE + 'glutes/walking-lunge.gif' },
+      airBike: { name: 'Bicicleta abdominal', gif: GIF_BASE + 'abs/air-bike.gif' },
+      starJump: { name: 'Saltos de estrella', gif: GIF_BASE + 'cardio/star-jump-male.gif' },
+      skater: { name: 'Saltos de patinador', gif: GIF_BASE + 'cardio/skater-hops.gif' },
+      highKnees: { name: 'Rodillas al pecho', gif: GIF_BASE + 'cardio/high-knee-against-wall.gif' },
+      jumpRope: { name: 'Salto de comba', gif: GIF_BASE + 'cardio/jump-rope.gif' },
+    };
+    const HIIT_PRESETS = [
+      {
+        id: 'hiit-tabata', emoji: '⏱️', name: 'Tabata Clásico', level: 'Todos los niveles', work: 20, rest: 10, rounds: 8,
+        desc: 'El protocolo original: 8 rondas de 20 s a máxima intensidad con 10 s de pausa.',
+        exercises: ['jumpSquat', 'pushUp', 'climber', 'jacks'],
+      },
+      {
+        id: 'hiit-fullbody', emoji: '💥', name: 'Full Body HIIT', level: 'Intermedio', work: 40, rest: 20, rounds: 10,
+        desc: 'Circuito de cuerpo completo: dos vueltas a cinco ejercicios de 40 s.',
+        exercises: ['burpee', 'jumpSquat', 'pushUp', 'lunge', 'airBike'],
+      },
+      {
+        id: 'hiit-cardio-extreme', emoji: '🔥', name: 'Cardio Extreme', level: 'Avanzado', work: 45, rest: 15, rounds: 12,
+        desc: 'Cardio pliométrico con descansos mínimos para disparar las pulsaciones.',
+        exercises: ['burpee', 'starJump', 'skater', 'highKnees', 'climber', 'jumpRope'],
+      },
+    ];
+    const HIIT_CUSTOM_POOL = ['burpee', 'jumpSquat', 'pushUp', 'climber', 'jacks', 'lunge', 'airBike', 'starJump'];
+    const HIIT_PREP_SEC = 10;
+    const HIIT_KCAL_PER_MIN_WORK = 12;
+    const HIIT_KCAL_PER_MIN_REST = 4;
+    const HIIT_PHASE_TEXT = { prep: '¡PREPÁRATE!', work: '¡TRABAJO!', rest: '¡DESCANSO!' };
+    let trainingMode = 'strength';
+    let hiit = { active: false, finished: false, plan: null, phase: 'idle', interval: null, wakeLock: null };
+
+    // ============ YOGA / MOVILIDAD y CROSSFIT / WOD ============
+    const YOGA_POSES = {
+      neckSide: { name: 'Estiramiento lateral de cuello', gif: GIF_BASE + 'levator-scapulae/neck-side-stretch.gif' },
+      sideStand: { name: 'Media luna de pie', gif: GIF_BASE + 'lats/standing-lateral-stretch.gif' },
+      chestOpen: { name: 'Apertura de pecho y hombros', gif: GIF_BASE + 'pectorals/chest-and-front-of-shoulder-stretch.gif' },
+      upDog: { name: 'Perro boca arriba', gif: GIF_BASE + 'spine/upward-facing-dog.gif' },
+      childLat: { name: 'Postura del niño (dorsales)', gif: GIF_BASE + 'lats/kneeling-lat-stretch.gif' },
+      worldGreatest: { name: 'Estocada con rotación', gif: GIF_BASE + 'hamstrings/world-greatest-stretch.gif' },
+      quadFours: { name: 'Cuádriceps en cuadrupedia', gif: GIF_BASE + 'quads/all-fours-squad-stretch.gif' },
+      spine: { name: 'Estiramiento de columna sentado', gif: GIF_BASE + 'spine/spine-stretch.gif' },
+      butterfly: { name: 'Postura de la mariposa', gif: GIF_BASE + 'adductors/butterfly-yoga-pose.gif' },
+      piriformis: { name: 'Paloma sentada (piriforme)', gif: GIF_BASE + 'glutes/seated-piriformis-stretch.gif' },
+      frog: { name: 'Postura de la rana', gif: GIF_BASE + 'glutes/rocking-frog-stretch.gif' },
+      hipFlexor: { name: 'Estocada baja (flexor de cadera)', gif: GIF_BASE + 'quads/intermediate-hip-flexor-and-quad-stretch.gif' },
+      runner: { name: 'Estiramiento del corredor', gif: GIF_BASE + 'hamstrings/runners-stretch.gif' },
+      ironCross: { name: 'Torsión en cruz', gif: GIF_BASE + 'glutes/iron-cross-stretch.gif' },
+      lowerBack: { name: 'Pinza sentada (lumbares)', gif: GIF_BASE + 'lats/seated-lower-back-stretch.gif' },
+      hamstring: { name: 'Isquiotibiales de pie', gif: GIF_BASE + 'hamstrings/hamstring-stretch.gif' },
+      calfWall: { name: 'Gemelos contra la pared', gif: GIF_BASE + 'calves/calf-stretch-with-hands-against-wall.gif' },
+      quadSide: { name: 'Cuádriceps tumbado de lado', gif: GIF_BASE + 'quads/lying-side-quads-stretch.gif' },
+      glute: { name: 'Glúteo sentado', gif: GIF_BASE + 'glutes/seated-glute-stretch.gif' },
+      triceps: { name: 'Tríceps por encima de la cabeza', gif: GIF_BASE + 'triceps/overhead-triceps-stretch.gif' },
+      rearDelt: { name: 'Hombro posterior cruzado', gif: GIF_BASE + 'delts/rear-deltoid-stretch.gif' },
+      upperBack: { name: 'Espalda alta', gif: GIF_BASE + 'upper-back/upper-back-stretch.gif' },
+    };
+    const YOGA_PRESETS = [
+      {
+        id: 'yoga-morning', emoji: '🌅', name: 'Movilidad Matinal', level: 'Todos los niveles',
+        desc: 'Despierta cuello, columna y caderas antes de empezar el día.',
+        poses: [['neckSide', 30], ['sideStand', 30], ['chestOpen', 30], ['upDog', 30], ['childLat', 45], ['worldGreatest', 45], ['quadFours', 30], ['spine', 45]],
+      },
+      {
+        id: 'yoga-hips', emoji: '🧘', name: 'Yoga de Caderas', level: 'Intermedio',
+        desc: 'Apertura de cadera y espalda baja con posturas largas y respiración lenta.',
+        poses: [['butterfly', 60], ['piriformis', 45], ['frog', 45], ['hipFlexor', 45], ['runner', 45], ['ironCross', 45], ['lowerBack', 60]],
+      },
+      {
+        id: 'yoga-cooldown', emoji: '🌙', name: 'Estiramiento Post-Entreno', level: 'Recuperación',
+        desc: 'Vuelta a la calma de cuerpo completo tras fuerza, HIIT o un WOD.',
+        poses: [['hamstring', 40], ['calfWall', 30], ['quadSide', 40], ['glute', 40], ['triceps', 30], ['rearDelt', 30], ['chestOpen', 30], ['upperBack', 30]],
+      },
+    ];
+    const WOD_EXERCISES = {
+      pullUp: { name: 'Dominadas', gif: GIF_BASE + 'lats/pull-up.gif' },
+      pushUp: { name: 'Flexiones', gif: GIF_BASE + 'pectorals/push-up.gif' },
+      airSquat: { name: 'Sentadillas', gif: GIF_BASE + 'quads/squat-to-overhead-reach.gif' },
+      burpee: { name: 'Burpees', gif: GIF_BASE + 'cardio/burpee.gif' },
+      kbSwing: { name: 'Kettlebell swings', gif: GIF_BASE + 'glutes/kettlebell-swing.gif' },
+      sitUp: { name: 'Abdominales (sit-ups)', gif: GIF_BASE + 'abs/sit-up-v-2.gif' },
+      lunge: { name: 'Zancadas', gif: GIF_BASE + 'glutes/walking-lunge.gif' },
+      thruster: { name: 'Thrusters con kettlebell', gif: GIF_BASE + 'delts/kettlebell-thruster.gif' },
+      jumpRope: { name: 'Saltos de comba', gif: GIF_BASE + 'cardio/jump-rope.gif' },
+      climber: { name: 'Mountain climbers', gif: GIF_BASE + 'cardio/mountain-climber.gif' },
+      jumpSquat: { name: 'Sentadillas con salto', gif: GIF_BASE + 'glutes/jump-squat.gif' },
+    };
+    const WOD_PRESETS = [
+      {
+        id: 'amrap-cindy', type: 'amrap', emoji: '🦆', name: 'Cindy', level: 'Benchmark clásico', minutes: 20, options: [10, 15, 20],
+        desc: 'El benchmark de CrossFit: máximo de rondas posibles con dominadas, flexiones y sentadillas.',
+        items: [['pullUp', 5], ['pushUp', 10], ['airSquat', 15]],
+      },
+      {
+        id: 'amrap-express', type: 'amrap', emoji: '⚡', name: 'AMRAP Express', level: 'Todos los niveles', minutes: 10, options: [10, 15, 20],
+        desc: 'Solo peso corporal y sin material: perfecto para entrenar en casa.',
+        items: [['burpee', 5], ['airSquat', 10], ['sitUp', 15]],
+      },
+      {
+        id: 'amrap-engine', type: 'amrap', emoji: '🔥', name: 'Motor Metabólico', level: 'Avanzado', minutes: 15, options: [10, 15, 20],
+        desc: 'Kettlebell, zancadas y comba para llevar el motor al límite.',
+        items: [['kbSwing', 12], ['lunge', 20], ['pushUp', 10], ['jumpRope', 30]],
+      },
+      {
+        id: 'emom-starter', type: 'emom', emoji: '⏰', name: 'EMOM Iniciación', level: 'Todos los niveles', minutes: 10, options: [10, 12, 16, 20],
+        desc: 'Minutos alternos de burpees y sentadillas; descansa lo que sobre de cada minuto.',
+        items: [['burpee', 8], ['airSquat', 15]],
+      },
+      {
+        id: 'emom-strength', type: 'emom', emoji: '🏋️', name: 'EMOM Fuerza', level: 'Intermedio', minutes: 12, options: [12, 15, 18],
+        desc: 'Tres estaciones en rotación: thrusters, dominadas y core.',
+        items: [['thruster', 10], ['pullUp', 6], ['sitUp', 15]],
+      },
+      {
+        id: 'emom-cardio', type: 'emom', emoji: '💨', name: 'EMOM Cardio', level: 'Avanzado', minutes: 16, options: [12, 16, 20],
+        desc: 'Cuatro estaciones explosivas que se repiten cada cuatro minutos.',
+        items: [['jumpSquat', 12], ['pushUp', 12], ['climber', 30], ['burpee', 10]],
+      },
+    ];
+    const FLOW_PREP_SEC = 10;
+    const FLOW_KCAL_PER_MIN = { yoga: 3, amrap: 11, emom: 10 };
+    const MODE_ACTIVE_CLASS = { strength: 'bg-duck', hiit: 'bg-lime-400', yoga: 'bg-teal-300', wod: 'bg-orange-400' };
+    let yogaHold = 0;
+    const wodMinutes = {};
+    let flow = { active: false, finished: false, plan: null, interval: null, wakeLock: null };
+
+    const getUsers = () => { try { return JSON.parse(localStorage.getItem('duckgym_users') || '{}'); } catch (e) { return {}; } };
+    const saveUsers = (u) => localStorage.setItem('duckgym_users', JSON.stringify(u));
+    const readJSON = (key, fallback) => { try { const v = JSON.parse(localStorage.getItem(key) || 'null'); return v == null ? fallback : v; } catch (e) { return fallback; } };
+
+    // Progreso y rutinas completadas guardados dentro del usuario autenticado
+    const getUserData = () => (currentUser ? (getUsers()[currentUser] || {}) : {});
+    const saveUserData = (patch) => {
+      if (!currentUser) return;
+      const users = getUsers();
+      users[currentUser] = { ...(users[currentUser] || {}), ...patch };
+      saveUsers(users);
+    };
+    const routineCategoryLabel = (cat) => ({ gym: 'Gimnasio / Fuerza', hiit: 'HIIT / Tabata', yoga: 'Yoga / Movilidad', wod: 'CrossFit / WOD' }[cat] || 'Calistenia / Aire libre');
+    const legacyCompletionToHistory = (entry) => {
+      const routine = ROUTINES.find((r) => r.id === entry.id);
+      const title = entry.name || entry.title || (routine && routine.name) || 'Rutina';
+      const date = entry.date || entry.timestamp || new Date().toISOString();
+      return {
+        id: 'rh-legacy-' + String(entry.id || 'rutina') + '-' + String(date),
+        routineId: entry.id || '',
+        name: title,
+        title,
+        category: routine ? routine.category : 'gym',
+        categoryLabel: routine ? routineCategoryLabel(routine.category) : 'Rutina',
+        date,
+        timestamp: date,
+        durationSec: 0,
+        calories: 0,
+        exercises: routine ? routine.exercises.map((ex) => ({ name: ex.name, detail: ex.detail, gif: ex.gif })) : [],
+      };
+    };
+    const getRoutineHistory = () => {
+      const data = getUserData();
+      if (Array.isArray(data.history)) return data.history;
+      const legacyUser = Array.isArray(data.completedRoutines) ? data.completedRoutines : [];
+      const legacyGlobal = readJSON('duckgym_routines_completed', []);
+      return [...legacyUser, ...legacyGlobal].map(legacyCompletionToHistory);
+    };
+    const saveRoutineHistory = (arr) => {
+      saveUserData({ history: arr.slice(0, 100) });
+      localStorage.removeItem('duckgym_routines_completed');
+    };
+    const getRoutineProgressStore = () => {
+      const data = getUserData();
+      if (data.routineProgress && typeof data.routineProgress === 'object') return data.routineProgress;
+      return readJSON('duckgym_routine_progress', {});
+    };
+    const saveRoutineProgressStore = (p) => {
+      saveUserData({ routineProgress: p });
+      localStorage.removeItem('duckgym_routine_progress');
+    };
+
+    // Migra los datos globales de versiones anteriores al usuario actual
+    function migrateLegacyUserData() {
+      if (!currentUser) return;
+      const users = getUsers();
+      const u = users[currentUser];
+      if (!u) return;
+      let changed = false;
+      if (!u.routineProgress) {
+        const legacy = readJSON('duckgym_routine_progress', null);
+        if (legacy && typeof legacy === 'object' && Object.keys(legacy).length) { u.routineProgress = legacy; changed = true; }
+      }
+      if (!Array.isArray(u.history)) {
+        const legacyUser = Array.isArray(u.completedRoutines) ? u.completedRoutines : [];
+        const legacyGlobal = readJSON('duckgym_routines_completed', []);
+        const seen = new Set();
+        u.history = [...legacyUser, ...legacyGlobal]
+          .filter((entry) => {
+            const key = String(entry && entry.id) + '|' + String(entry && entry.date);
+            if (seen.has(key)) return false;
+            seen.add(key);
+            return true;
+          })
+          .map(legacyCompletionToHistory)
+          .slice(0, 100);
+        changed = true;
+      }
+      if (Object.prototype.hasOwnProperty.call(u, 'completedRoutines')) { delete u.completedRoutines; changed = true; }
+      localStorage.removeItem('duckgym_routine_progress');
+      localStorage.removeItem('duckgym_routines_completed');
+      if (changed) { users[currentUser] = u; saveUsers(users); }
+    }
+
+    // ============ AVISOS ============
+    let toastTimer = null;
+    function showToast(msg) {
+      const el = document.getElementById('toast');
+      el.textContent = msg;
+      el.classList.remove('hidden');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => el.classList.add('hidden'), 2600);
+    }
+
+    // ============ AUTENTICACIÓN ============
+    let authMode = 'login';
+    const setAuthMode = (m) => {
+      authMode = m;
+      const isLogin = m === 'login';
+      const loginTab = document.getElementById('authTabLogin');
+      const signupTab = document.getElementById('authTabSignup');
+      loginTab.className = `auth-tab flex-1 py-2 rounded-lg text-sm font-bold transition-colors ${isLogin ? 'bg-duck text-ink' : 'text-slate-400'}`;
+      signupTab.className = `auth-tab flex-1 py-2 rounded-lg text-sm font-bold transition-colors ${!isLogin ? 'bg-duck text-ink' : 'text-slate-400'}`;
+      document.getElementById('authNameWrap').classList.toggle('hidden', isLogin);
+      document.getElementById('authConfirmWrap').classList.toggle('hidden', isLogin);
+      document.getElementById('authSubmit').textContent = isLogin ? 'Entrar' : 'Crear cuenta';
+    };
+
+    async function submitAuth(e) {
+      e.preventDefault();
+      const errEl = document.getElementById('authError');
+      const uname = document.getElementById('authUser').value.trim();
+      const pass = document.getElementById('authPass').value;
+      errEl.classList.add('hidden');
+      let err = null;
+      if (authMode === 'signup') {
+        const name = document.getElementById('authName').value.trim();
+        const pass2 = document.getElementById('authPass2').value;
+        if (!name || !uname || !pass) { err = 'Todos los campos son obligatorios.'; }
+        else if (!/^[a-zA-Z0-9_.-]{3,20}$/.test(uname)) { err = 'El usuario debe tener 3–20 caracteres (letras, números, . _ -).'; }
+        else if (pass.length < 4) { err = 'La contraseña debe tener al menos 4 caracteres.'; }
+        else if (pass !== pass2) { err = 'Las contraseñas no coinciden.'; }
+        else {
+          const users = getUsers();
+          if (users[uname]) { err = 'Ese nombre de usuario ya está en uso.'; }
+          else {
+            const salt = Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+            const hash = await hashPassword(`${salt}:${pass}`);
+            users[uname] = { name, salt, hash, routineProgress: {}, history: [] };
+            saveUsers(users);
+          }
+        }
+      } else {
+        const users = getUsers();
+        const user = users[uname];
+        if (!user) { err = 'No existe una cuenta con ese usuario.'; }
+        else {
+          const hash = await hashPassword(`${user.salt}:${pass}`);
+          if (hash !== user.hash) {
+            if (sha256Fallback(`${user.salt}:${pass}`, true) === user.hash) {
+              user.hash = hash;
+              users[uname] = user;
+              saveUsers(users);
+            } else {
+              err = 'Contraseña incorrecta. Inténtalo de nuevo.';
+            }
+          }
+        }
+      }
+      if (err) { errEl.textContent = err; errEl.classList.remove('hidden'); return; }
+      localStorage.setItem('duckgym_session', uname);
+      currentUser = uname;
+      enterApp();
+    }
+
+    function enterApp() {
+      document.getElementById('authScreen').classList.add('hidden');
+      document.getElementById('appScreen').classList.remove('hidden');
+      migrateLegacyUserData();
+      const profile = getUsers()[currentUser] || {};
+      const displayName = profile.name || currentUser;
+      document.getElementById('userBadge').textContent = '🦆 ' + esc(displayName);
+      document.getElementById('dashGreeting').textContent = '¡Hola de nuevo, ' + esc(displayName) + '! 👋';
+      showView('dashboard');
+    }
+
+    function logout() {
+      localStorage.removeItem('duckgym_session');
+      currentUser = null;
+      document.getElementById('appScreen').classList.add('hidden');
+      document.getElementById('authScreen').classList.remove('hidden');
+      document.getElementById('authForm').reset();
+      document.getElementById('authError').classList.add('hidden');
+      setAuthMode('login');
+      if (chart) { chart.destroy(); chart = null; }
+    }
+
+    // ============ NAVEGACIÓN / VISTAS ============
+    function showView(name) {
+      ['dashboard', 'routines', 'history'].forEach((v) => {
+        const el = document.getElementById('view-' + v);
+        if (el) el.classList.toggle('hidden', v !== name);
+      });
+      document.querySelectorAll('[data-view]').forEach((b) => {
+        const active = b.dataset.view === name;
+        b.classList.toggle('bg-duck', active);
+        b.classList.toggle('text-ink', active);
+        b.classList.toggle('text-slate-400', !active);
+      });
+      if (name === 'dashboard' && currentUser) { renderDashboard(); }
+      if (name === 'routines' && currentUser) { renderRoutines(); renderRoutineHistory(); }
+      if (name === 'history' && currentUser) { renderHistory(); }
+    }
+
+    // ============ PANEL / ESTADÍSTICAS ============
+    function last7Days() {
+      const out = [];
+      const now = new Date();
+      for (let i = 6; i >= 0; i--) {
+        const d = new Date(now);
+        d.setDate(now.getDate() - i);
+        const key = `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+        out.push({ key, label: d.toLocaleDateString('es-ES', { weekday: 'short' }) });
+      }
+      return out;
+    }
+
+    function updateDashboardStats() {
+      const history = getRoutineHistory();
+      const totalKcal = history.reduce((a, h) => a + (Number(h.calories) || 0), 0);
+      const totalSec = history.reduce((a, h) => a + (Number(h.durationSec) || 0), 0);
+      const totalSets = history.reduce((a, h) => a + (Number(h.setsCompleted) || 0), 0);
+      const totalExercises = history.reduce((a, h) => a + (Array.isArray(h.exercises) ? h.exercises.length : 0), 0);
+      document.getElementById('statSets').textContent = totalSets.toLocaleString('es-ES');
+      document.getElementById('statCalories').textContent = Math.round(totalKcal).toString();
+      const totalMinutes = totalSec > 0 ? Math.max(1, Math.round(totalSec / 60)) : 0;
+      document.getElementById('statTime').textContent = totalMinutes.toLocaleString('es-ES');
+      document.getElementById('statTimeSub').textContent = fmtDuration(totalSec) + ' acumulados';
+      document.getElementById('statSessions').textContent = history.length.toString();
+      document.getElementById('statSessionsSub').textContent = `${totalExercises} ${totalExercises === 1 ? 'ejercicio' : 'ejercicios'} realizados`;
+    }
+
+    function renderDashboard() {
+      const history = getRoutineHistory();
+      updateDashboardStats();
+      renderRoutineHistory();
+
+      if (chart) { chart.destroy(); chart = null; }
+      const days = last7Days();
+      const localKey = (iso) => { const d = new Date(iso); return Number.isNaN(d.getTime()) ? '' : `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`; };
+      const data = days.map((d) => {
+        const sec = history.filter((h) => localKey(routineHistoryDate(h)) === d.key).reduce((a, h) => a + (Number(h.durationSec) || 0), 0);
+        return Math.round((sec / 60) * 10) / 10;
+      });
+      const canvas = document.getElementById('weeklyChart');
+      if (typeof Chart === 'undefined' || !canvas) return;
+      chart = new Chart(canvas.getContext('2d'), {
+        type: 'bar',
+        data: {
+          labels: days.map((d) => d.label),
+          datasets: [{ label: 'Minutos de entrenamiento', data, backgroundColor: 'rgba(250, 204, 21, 0.85)', borderRadius: 6, maxBarThickness: 42 }],
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: { callbacks: { label: (c) => ' ' + num(c.parsed.y, 1) + ' min' } },
+          },
+          scales: { x: { grid: { color: 'rgba(30,41,59,1)' } }, y: { beginAtZero: true, grid: { color: 'rgba(30,41,59,1)' }, ticks: { color: '#94a3b8' } } },
+        },
+      });
+    }
+
+    function routineHistoryCardHTML(h) {
+      const exercises = Array.isArray(h.exercises) ? h.exercises : [];
+      const first = exercises[0] || null;
+      const title = routineHistoryTitle(h);
+      const catLabel = h.categoryLabel || routineCategoryLabel(h.category || 'gym');
+      const isHiit = h.category === 'hiit';
+      const catClass = {
+        gym: 'bg-duck/10 text-duck border border-duck/30',
+        hiit: 'bg-lime-400/10 text-lime-300 border border-lime-400/30',
+        yoga: 'bg-teal-300/10 text-teal-300 border border-teal-300/30',
+        wod: 'bg-orange-400/10 text-orange-300 border border-orange-400/30',
+      }[h.category] || 'bg-emerald-400/10 text-emerald-400 border border-emerald-400/30';
+      const flowSummary = h.mode === 'yoga'
+        ? `<span>🧘 ${Number(h.posesCompleted) || 0}/${Number(h.posesTotal) || 0} posturas</span>`
+        : h.mode === 'amrap'
+          ? `<span>🔁 AMRAP ${Number(h.minutes) || 0}′: ${Number(h.roundsCompleted) || 0} rondas + ${Number(h.extraExercises) || 0} ej.</span>`
+          : h.mode === 'emom'
+            ? `<span>⏰ EMOM: ${Number(h.minutesCompleted) || 0}/${Number(h.minutes) || 0} minutos</span>`
+            : '';
+      const dur = Math.max(0, Number(h.durationSec) || 0);
+      const kcal = Math.round(Number(h.calories) || 0);
+      const setsDone = exercises.reduce((sum, ex) => sum + (Number(ex.setsCompleted) || 0), 0);
+      const setsTotal = exercises.reduce((sum, ex) => sum + (Number(ex.setsTotal) || 0), 0);
+      return `
+      <article data-history-card data-history-id="${esc(h.id)}" class="bg-slate900 border border-slate800 rounded-2xl overflow-hidden transition-shadow">
+        <div class="px-4 py-3 border-b border-slate800 flex flex-wrap items-center justify-between gap-2">
+          <div class="min-w-0">
+            <h4 class="font-extrabold text-white truncate">${esc(title)}</h4>
+            <p class="text-[11px] text-slate-500 font-semibold mt-0.5">${esc(fmtHistoryDate(routineHistoryDate(h)))}</p>
+          </div>
+          <div class="flex flex-wrap items-center gap-2">
+            <span class="text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-full ${catClass}">${esc(catLabel)}</span>
+            <span class="px-2.5 py-1 rounded-lg bg-ink border border-slate800 text-xs font-extrabold text-duck tabular-nums" title="Duración real">⏱️ ${fmtRoutineClock(dur)} <span class="text-[10px] font-bold text-slate-500">min</span></span>
+          </div>
+        </div>
+        <div class="p-4 grid sm:grid-cols-[180px_1fr] gap-4 items-start">
+          <div class="relative rounded-xl overflow-hidden border border-slate800 bg-ink h-[170px]">
+            ${first
+              ? `<img data-history-gif src="${esc(first.gif)}" alt="Demostración de ${esc(first.name)}" class="w-full h-full object-contain" loading="lazy" decoding="async" />`
+              : '<div class="w-full h-full flex flex-col items-center justify-center gap-1 text-slate-500 text-xs font-semibold"><span class="text-3xl">🏋️</span>Sin GIF registrado</div>'}
+          </div>
+          <div class="min-w-0">
+            <p data-history-detail class="text-xs font-bold text-duck min-h-[18px]">${first ? esc(first.name + ' · ' + first.detail) : 'Sin ejercicios registrados'}</p>
+            <div class="flex flex-wrap gap-1.5 mt-2">
+              ${exercises.map((ex, i) => `<button type="button" data-history-exercise="${i}" data-gif="${esc(ex.gif)}" data-label="${esc(ex.name + ' · ' + ex.detail)}" aria-pressed="${i === 0 ? 'true' : 'false'}" class="px-2.5 py-1 rounded-lg text-[11px] font-bold transition-colors ${i === 0 ? 'bg-duck text-ink' : 'bg-slate800 text-slate-300 hover:bg-[#334155]'}">${esc(ex.name)}</button>`).join('')}
+            </div>
+            <div class="flex flex-wrap items-center gap-x-4 gap-y-1 mt-3 text-[11px] text-slate-500 font-semibold">
+              <span>${exercises.length} ${exercises.length === 1 ? 'ejercicio' : 'ejercicios'}</span>
+              <span>⏱ ${fmtRoutineDurationText(dur)}</span>
+              ${flowSummary || (isHiit
+                ? `<span>⚡ ${Number(h.roundsCompleted) || 0}/${Number(h.rounds) || 0} rondas</span><span>💥 ${fmtClock(h.workSec)} alta intensidad</span>`
+                : (setsTotal ? `<span>💪 ${setsDone}/${setsTotal} series</span>` : ''))}
+              <span>🔥 ${kcal} kcal</span>
+            </div>
+          </div>
+        </div>
+      </article>`;
+    }
+
+    function renderRoutineHistory() {
+      const history = getRoutineHistory();
+      const targets = [
+        { list: 'routineHistoryList', empty: 'routineHistoryEmpty', count: 'routineHistoryCount', limit: 3 },
+        { list: 'completedRoutinesList', empty: 'completedRoutinesEmpty', count: 'completedRoutinesCount' },
+        { list: 'historyRoutineList', empty: 'historyRoutineEmpty' },
+      ];
+      targets.forEach(({ list, empty, count, limit }) => {
+        const listEl = document.getElementById(list);
+        if (!listEl) return;
+        const emptyEl = document.getElementById(empty);
+        const countEl = document.getElementById(count);
+        if (countEl) countEl.textContent = history.length === 1 ? '1 rutina' : history.length + ' rutinas';
+        if (emptyEl) emptyEl.classList.toggle('hidden', history.length > 0);
+        listEl.classList.toggle('hidden', history.length === 0);
+        const shown = limit ? history.slice(0, limit) : history;
+        listEl.innerHTML = shown.length ? shown.map(routineHistoryCardHTML).join('') : '';
+      });
+    }
+
+    // ============ ENTRENAMIENTO GUIADO ============
+    function parseExercisePlan(detail) {
+      const text = String(detail || '').trim();
+      const match = text.match(/(\d+)\s*series?\s*[×xX]\s*(.+)/i);
+      return {
+        sets: match ? Math.max(1, parseInt(match[1], 10)) : 1,
+        target: match ? match[2].trim() : (text || 'A tu ritmo'),
+      };
+    }
+
+    function ensureAudioContext() {
+      try {
+        const AC = window.AudioContext || window.webkitAudioContext;
+        if (!AC) return null;
+        if (!sharedAudioCtx || sharedAudioCtx.state === 'closed') sharedAudioCtx = new AC();
+        if (sharedAudioCtx.state === 'suspended') sharedAudioCtx.resume().catch(() => {});
+        return sharedAudioCtx;
+      } catch (e) { return null; }
+    }
+
+    function playFinishTone() {
+      const ctx = ensureAudioContext();
+      if (!ctx) return;
+      const base = ctx.currentTime;
+      [523.25, 659.25, 783.99].forEach((freq, i) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        const at = base + i * 0.16;
+        osc.type = 'triangle';
+        osc.frequency.value = freq;
+        gain.gain.setValueAtTime(0, at);
+        gain.gain.linearRampToValueAtTime(0.22, at + 0.03);
+        gain.gain.exponentialRampToValueAtTime(0.001, at + 0.34);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(at);
+        osc.stop(at + 0.36);
+      });
+    }
+
+    function guidedRestDuration(kind) {
+      const base = guided.routine && guided.routine.category === 'gym' ? 45 : 30;
+      return base + (kind === 'exercise' ? 15 : 0);
+    }
+
+    function persistRoutineCompletion(routine, durationSec, exercises) {
+      const now = new Date();
+      const isoDate = now.toISOString();
+      const kcalPerMin = routine.id === 'cali-hiit' ? 9.5 : (routine.category === 'gym' ? 6 : 7);
+      const normalized = (Array.isArray(exercises) ? exercises : []).map((ex) => ({
+        name: ex.name,
+        detail: ex.detail,
+        gif: ex.gif,
+        setsCompleted: Math.max(0, Number(ex.setsCompleted) || 0),
+        setsTotal: Math.max(0, Number(ex.setsTotal) || 0),
+      }));
+      const setsCompleted = normalized.reduce((sum, ex) => sum + ex.setsCompleted, 0);
+      const setsTotal = normalized.reduce((sum, ex) => sum + ex.setsTotal, 0);
+      const entry = {
+        id: 'rh-' + now.getTime() + '-' + Math.random().toString(36).slice(2, 7),
+        routineId: routine.id,
+        name: routine.name,
+        title: routine.name,
+        category: routine.category,
+        categoryLabel: routineCategoryLabel(routine.category),
+        date: isoDate,
+        timestamp: isoDate,
+        durationSec,
+        calories: Math.round((durationSec / 60) * kcalPerMin),
+        setsCompleted,
+        setsTotal,
+        exercises: normalized,
+      };
+      const history = getRoutineHistory();
+      history.unshift(entry);
+      saveRoutineHistory(history);
+      updateDashboardStats();
+      renderRoutineHistory();
+      return entry;
+    }
+
+    function focusLatestCompletedRoutine() {
+      const container = document.getElementById('completedRoutinesContainer');
+      if (container && container.scrollIntoView) container.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      const card = document.querySelector('#completedRoutinesList [data-history-card]');
+      if (!card) return;
+      card.classList.add('ring-2', 'ring-duck', 'ring-offset-2', 'ring-offset-ink');
+      setTimeout(() => card.classList.remove('ring-2', 'ring-duck', 'ring-offset-2', 'ring-offset-ink'), 2600);
+    }
+
+    function guidedPaintProgress() {
+      const total = guided.totalSets || 1;
+      const done = Math.min(guided.completedSets, total);
+      const pct = Math.round((done / total) * 100);
+      document.getElementById('guidedProgressBar').style.width = pct + '%';
+      document.getElementById('guidedProgressTrack').setAttribute('aria-valuenow', String(pct));
+      document.getElementById('guidedProgressLabel').textContent = `${done} de ${guided.totalSets} series completadas`;
+    }
+
+    function guidedSetPhase(phase) {
+      guided.phase = phase;
+      document.getElementById('guidedExercisePanel').classList.toggle('hidden', phase !== 'exercise');
+      document.getElementById('guidedRestPanel').classList.toggle('hidden', phase !== 'rest');
+      document.getElementById('guidedDonePanel').classList.toggle('hidden', phase !== 'done');
+      const badge = document.getElementById('guidedPhaseBadge');
+      if (phase === 'rest') {
+        badge.textContent = 'Descanso';
+        badge.className = 'px-2 py-1 rounded-full border text-[10px] font-extrabold uppercase tracking-wider bg-emerald-400/10 border-emerald-400/30 text-emerald-400';
+      } else if (phase === 'done') {
+        badge.textContent = 'Completada';
+        badge.className = 'px-2 py-1 rounded-full border text-[10px] font-extrabold uppercase tracking-wider bg-duck border-duck text-ink';
+      } else {
+        badge.textContent = 'Ejercicio';
+        badge.className = 'px-2 py-1 rounded-full border text-[10px] font-extrabold uppercase tracking-wider bg-duck/10 border-duck/30 text-duck';
+      }
+    }
+
+    function setGuidedGif(url) {
+      const img = document.getElementById('guidedGif');
+      if (!img || !url) return;
+      if (img.dataset.gif === url && img.complete && img.naturalWidth > 0) return;
+      img.dataset.gif = url;
+      img.classList.add('opacity-0');
+      document.getElementById('guidedGifFallback').classList.add('hidden');
+      document.getElementById('guidedGifLoading').classList.remove('hidden');
+      img.src = url;
+    }
+
+    function renderGuidedExercise() {
+      const ex = guided.exercises[guided.exerciseIndex];
+      if (!ex) return;
+      document.getElementById('guidedExerciseCounter').textContent = `Ejercicio ${guided.exerciseIndex + 1} de ${guided.exercises.length}`;
+      document.getElementById('guidedExerciseName').textContent = ex.name;
+      document.getElementById('guidedExerciseDetail').textContent = ex.detail;
+      document.getElementById('guidedExerciseDesc').textContent = ex.desc || '';
+      document.getElementById('guidedSetCounter').textContent = `Serie ${guided.setNumber + 1} de ${ex.setsTotal}`;
+      document.getElementById('guidedSetTarget').textContent = `${ex.target} por serie`;
+      document.getElementById('guidedCompleteSetBtn').textContent = `✓ Completar Serie ${guided.setNumber + 1}`;
+      document.getElementById('guidedSetDots').innerHTML = Array.from({ length: ex.setsTotal }, (_, i) => {
+        const isDone = i < ex.setsCompleted;
+        const isCurrent = i === guided.setNumber && !isDone;
+        const cls = isDone
+          ? 'bg-duck text-ink'
+          : (isCurrent ? 'bg-duck/10 border border-duck/50 text-duck' : 'bg-slate800 text-slate-500');
+        return `<span class="w-7 h-7 rounded-lg flex items-center justify-center text-[10px] font-extrabold ${cls}" title="Serie ${i + 1}">${isDone ? '✓' : i + 1}</span>`;
+      }).join('');
+      setGuidedGif(ex.gif);
+      guidedPaintProgress();
+    }
+
+    function guidedTick() {
+      if (!guided.active || !guided.startedAt) return;
+      document.getElementById('guidedTotalTimer').textContent = '⏱️ ' + fmtRoutineClock((Date.now() - guided.startedAt) / 1000);
+    }
+
+    function stopGuidedTimers() {
+      if (guided.tickInterval) { clearInterval(guided.tickInterval); guided.tickInterval = null; }
+      if (guided.restInterval) { clearInterval(guided.restInterval); guided.restInterval = null; }
+    }
+
+    function openGuidedWorkout(routineId) {
+      const routine = ROUTINES.find((r) => r.id === routineId);
+      if (!routine) return;
+      stopGuidedTimers();
+      ensureAudioContext();
+      guided.active = true;
+      guided.finished = false;
+      guided.routine = routine;
+      guided.exercises = routine.exercises.map((ex) => {
+        const plan = parseExercisePlan(ex.detail);
+        return {
+          name: ex.name,
+          detail: ex.detail,
+          gif: ex.gif,
+          desc: ex.desc || '',
+          target: plan.target,
+          setsTotal: plan.sets,
+          setsCompleted: 0,
+        };
+      });
+      guided.exerciseIndex = 0;
+      guided.setNumber = 0;
+      guided.totalSets = guided.exercises.reduce((sum, ex) => sum + ex.setsTotal, 0);
+      guided.completedSets = 0;
+      guided.startedAt = Date.now();
+      guided.restInterval = null;
+      guided.restKind = 'series';
+      guided.restTotal = guidedRestDuration('series');
+      guided.restRemaining = guided.restTotal;
+      guided.lastEntry = null;
+      document.getElementById('guidedRoutineName').textContent = routine.name;
+      document.getElementById('guidedTotalTimer').textContent = '⏱️ 00:00';
+      document.getElementById('guidedGif').dataset.gif = '';
+      document.getElementById('guidedGif').classList.add('opacity-0');
+      document.getElementById('guidedGifFallback').classList.add('hidden');
+      document.getElementById('guidedGifLoading').classList.remove('hidden');
+      guidedSetPhase('exercise');
+      renderGuidedExercise();
+      guidedTick();
+      guided.tickInterval = setInterval(guidedTick, 500);
+      document.getElementById('guidedModal').classList.remove('hidden');
+      document.body.style.overflow = 'hidden';
+      document.getElementById('guidedCompleteSetBtn').focus({ preventScroll: true });
+    }
+
+    function startGuidedRest(kind) {
+      const ex = guided.exercises[guided.exerciseIndex];
+      guided.restKind = kind;
+      guided.restTotal = guidedRestDuration(kind);
+      guided.restRemaining = guided.restTotal;
+      guided.restEndAt = Date.now() + guided.restTotal * 1000;
+      let nextEx = ex;
+      let nextSet = guided.setNumber + 2;
+      if (kind === 'exercise') {
+        nextEx = guided.exercises[guided.exerciseIndex + 1];
+        nextSet = 1;
+      }
+      if (!nextEx) { finishGuidedWorkout(); return; }
+      document.getElementById('guidedRestCountdown').textContent = fmtClock(guided.restTotal);
+      document.getElementById('guidedRestBar').style.width = '100%';
+      document.getElementById('guidedRestLabel').textContent = kind === 'series'
+        ? 'Recupera para la siguiente serie'
+        : 'Cambio de ejercicio';
+      document.getElementById('guidedNextName').textContent = nextEx.name;
+      document.getElementById('guidedNextDetail').textContent = nextEx.detail;
+      document.getElementById('guidedNextMeta').textContent = `Serie ${nextSet} de ${nextEx.setsTotal} · ${nextEx.target}`;
+      guidedSetPhase('rest');
+      if (guided.restInterval) clearInterval(guided.restInterval);
+      guided.restInterval = setInterval(guidedTickRest, 200);
+    }
+
+    function guidedTickRest() {
+      if (!guided.active || guided.phase !== 'rest') return;
+      const remaining = Math.max(0, Math.ceil((guided.restEndAt - Date.now()) / 1000));
+      guided.restRemaining = remaining;
+      document.getElementById('guidedRestCountdown').textContent = fmtClock(remaining);
+      const pct = guided.restTotal > 0 ? Math.max(0, Math.min(100, (remaining / guided.restTotal) * 100)) : 0;
+      document.getElementById('guidedRestBar').style.width = pct + '%';
+      if (remaining <= 0) {
+        clearInterval(guided.restInterval);
+        guided.restInterval = null;
+        playRestTone();
+        advanceGuidedAfterRest();
+      }
+    }
+
+    function advanceGuidedAfterRest() {
+      if (guided.phase !== 'rest') return;
+      if (guided.restInterval) { clearInterval(guided.restInterval); guided.restInterval = null; }
+      if (guided.restKind === 'exercise') {
+        guided.exerciseIndex += 1;
+        guided.setNumber = 0;
+      } else {
+        guided.setNumber += 1;
+      }
+      if (guided.exerciseIndex >= guided.exercises.length) { finishGuidedWorkout(); return; }
+      guidedSetPhase('exercise');
+      renderGuidedExercise();
+      document.getElementById('guidedCompleteSetBtn').focus({ preventScroll: true });
+    }
+
+    function skipGuidedRest() {
+      if (guided.phase !== 'rest') return;
+      advanceGuidedAfterRest();
+    }
+
+    function addGuidedRest() {
+      if (guided.phase !== 'rest') return;
+      guided.restEndAt += 15000;
+      guided.restTotal += 15;
+      guidedTickRest();
+    }
+
+    function completeGuidedSet() {
+      if (!guided.active || guided.phase !== 'exercise') return;
+      const ex = guided.exercises[guided.exerciseIndex];
+      if (!ex) return;
+      ex.setsCompleted = Math.max(ex.setsCompleted, guided.setNumber + 1);
+      guided.completedSets = guided.exercises.reduce((sum, item) => sum + item.setsCompleted, 0);
+      guidedPaintProgress();
+      if (guided.setNumber + 1 < ex.setsTotal) {
+        startGuidedRest('series');
+      } else if (guided.exerciseIndex + 1 < guided.exercises.length) {
+        startGuidedRest('exercise');
+      } else {
+        finishGuidedWorkout();
+      }
+    }
+
+    function finishGuidedWorkout() {
+      if (!guided.active || guided.finished) return;
+      guided.finished = true;
+      const durationSec = Math.max(1, Math.round((Date.now() - guided.startedAt) / 1000));
+      const entry = persistRoutineCompletion(guided.routine, durationSec, guided.exercises.map((ex) => ({
+        name: ex.name,
+        detail: ex.detail,
+        gif: ex.gif,
+        setsCompleted: ex.setsCompleted,
+        setsTotal: ex.setsTotal,
+      })));
+      guided.lastEntry = entry;
+      guided.completedSets = entry.setsCompleted;
+      guidedPaintProgress();
+      stopGuidedTimers();
+      guidedSetPhase('done');
+      document.getElementById('guidedDoneName').textContent = guided.routine.name;
+      document.getElementById('guidedDoneTime').textContent = fmtRoutineClock(entry.durationSec);
+      document.getElementById('guidedDoneSets').textContent = `${entry.setsCompleted}/${entry.setsTotal}`;
+      document.getElementById('guidedDoneKcal').textContent = Math.round(entry.calories) + ' kcal';
+      document.getElementById('guidedDoneSummary').innerHTML = entry.exercises.map((ex) => `
+        <div class="flex items-center justify-between gap-3 rounded-lg bg-ink border border-slate800 px-3 py-2 text-xs">
+          <span class="font-bold text-slate-300 truncate">${esc(ex.name)}</span>
+          <span class="font-extrabold text-duck shrink-0">${ex.setsCompleted}/${ex.setsTotal} series</span>
+        </div>`).join('');
+      playFinishTone();
+      showToast(`🎯 ¡Rutina completada en ${fmtRoutineDurationText(entry.durationSec)}!`);
+      document.getElementById('guidedDonePanel').scrollIntoView({ block: 'nearest' });
+    }
+
+    function closeGuidedWorkout(force = false) {
+      if (!guided.active) return;
+      if (!force && !guided.finished) {
+        const ok = window.confirm('¿Salir del entrenamiento guiado? El progreso de esta sesión no se guardará.');
+        if (!ok) return;
+      }
+      stopGuidedTimers();
+      guided.active = false;
+      guided.phase = 'idle';
+      document.getElementById('guidedModal').classList.add('hidden');
+      document.body.style.overflow = '';
+    }
+
+    // ============ HIIT / TABATA ============
+    const hiitDurationSec = (plan) => plan.rounds * plan.work + Math.max(0, plan.rounds - 1) * plan.rest;
+    const hiitExerciseFor = (round) => {
+      const list = hiit.plan.exercises;
+      return HIIT_EXERCISES[list[(Math.max(1, round) - 1) % list.length]];
+    };
+
+    function setTrainingMode(mode) {
+      trainingMode = MODE_ACTIVE_CLASS[mode] ? mode : 'strength';
+      document.querySelectorAll('[data-mode]').forEach((b) => {
+        const active = b.dataset.mode === trainingMode;
+        Object.values(MODE_ACTIVE_CLASS).forEach((c) => b.classList.remove(c));
+        if (active) b.classList.add(MODE_ACTIVE_CLASS[trainingMode]);
+        b.classList.toggle('text-ink', active);
+        b.classList.toggle('text-slate-400', !active);
+        b.setAttribute('aria-selected', active ? 'true' : 'false');
+      });
+      document.querySelectorAll('[data-mode-panel]').forEach((el) => el.classList.toggle('hidden', el.dataset.modePanel !== trainingMode));
+      if (trainingMode === 'hiit') { renderHiitPresets(); updateHiitCustomSummary(); }
+      if (trainingMode === 'yoga') renderYogaPresets();
+      if (trainingMode === 'wod') renderWodPresets();
+    }
+
+    function renderHiitPresets() {
+      document.getElementById('hiitPresetGrid').innerHTML = HIIT_PRESETS.map((p) => `
+        <div class="bg-slate900 border border-slate800 rounded-2xl p-5 flex flex-col gap-3">
+          <div class="flex items-start justify-between">
+            <span class="text-3xl">${p.emoji}</span>
+            <span class="text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full bg-lime-400/10 text-lime-300">HIIT / Tabata</span>
+          </div>
+          <h3 class="text-lg font-extrabold text-white">${esc(p.name)}</h3>
+          <p class="text-xs text-slate-400 font-medium">${esc(p.level)} · ${fmtRoutineDurationText(hiitDurationSec(p))}</p>
+          <div class="grid grid-cols-3 gap-2 text-center">
+            <div class="bg-ink border border-slate800 rounded-xl py-2"><p class="text-lg font-extrabold text-lime-300">${p.work}s</p><p class="text-[10px] uppercase tracking-wider text-slate-500 font-bold">Trabajo</p></div>
+            <div class="bg-ink border border-slate800 rounded-xl py-2"><p class="text-lg font-extrabold text-duck">${p.rest}s</p><p class="text-[10px] uppercase tracking-wider text-slate-500 font-bold">Descanso</p></div>
+            <div class="bg-ink border border-slate800 rounded-xl py-2"><p class="text-lg font-extrabold text-white">${p.rounds}</p><p class="text-[10px] uppercase tracking-wider text-slate-500 font-bold">Rondas</p></div>
+          </div>
+          <p class="text-sm text-slate-300 font-medium">${esc(p.desc)}</p>
+          <p class="text-[11px] text-slate-500 font-medium flex-1">${p.exercises.map((k) => esc(HIIT_EXERCISES[k].name)).join(' · ')}</p>
+          <button type="button" data-hiit="${p.id}" class="mt-1 px-4 py-2.5 rounded-xl bg-lime-400 text-ink font-extrabold text-sm hover:bg-lime-300 transition-colors">⚡ Iniciar HIIT</button>
+        </div>`).join('');
+    }
+
+    function readHiitCustomPlan() {
+      const val = (id, min, max, def) => {
+        const n = parseInt(document.getElementById(id).value, 10);
+        return Number.isFinite(n) ? Math.min(max, Math.max(min, n)) : def;
+      };
+      const work = val('hiitWorkInput', 5, 300, 30);
+      const rest = val('hiitRestInput', 0, 300, 15);
+      const rounds = val('hiitRoundsInput', 1, 50, 10);
+      return {
+        id: 'hiit-custom', emoji: '🛠', name: `HIIT Personalizado ${work}s/${rest}s`, level: 'Personalizado',
+        work, rest, rounds, exercises: HIIT_CUSTOM_POOL,
+      };
+    }
+
+    function updateHiitCustomSummary() {
+      const p = readHiitCustomPlan();
+      document.getElementById('hiitCustomSummary').textContent =
+        `${p.rounds} rondas · ${p.work}s trabajo / ${p.rest}s descanso · duración ${fmtRoutineDurationText(hiitDurationSec(p))}`;
+    }
+
+    function playHiitTone(freq, offset, duration, volume = 0.25, type = 'sine') {
+      try {
+        const ctx = ensureAudioContext();
+        if (!ctx) return;
+        const at = ctx.currentTime + offset;
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = type;
+        osc.frequency.value = freq;
+        gain.gain.setValueAtTime(0, at);
+        gain.gain.linearRampToValueAtTime(volume, at + 0.02);
+        gain.gain.setValueAtTime(volume, at + Math.max(0.02, duration - 0.08));
+        gain.gain.exponentialRampToValueAtTime(0.001, at + duration);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(at);
+        osc.stop(at + duration + 0.02);
+      } catch (e) { /* audio no disponible */ }
+    }
+    const playHiitWorkTone = () => playHiitTone(1568, 0, 0.32, 0.28, 'square');
+    const playHiitRestTone = () => { playHiitTone(880, 0, 0.14); playHiitTone(880, 0.22, 0.14); };
+    const playHiitFinishTone = () => playHiitTone(660, 0, 1.4, 0.3, 'triangle');
+    const playHiitTick = () => playHiitTone(520, 0, 0.07, 0.12);
+
+    async function requestHiitWakeLock() {
+      try {
+        if (hiit.active && !hiit.finished && navigator.wakeLock && document.visibilityState === 'visible') {
+          hiit.wakeLock = await navigator.wakeLock.request('screen');
+        }
+      } catch (e) { hiit.wakeLock = null; }
+    }
+    function releaseHiitWakeLock() {
+      try { if (hiit.wakeLock) hiit.wakeLock.release(); } catch (e) { /* sin wake lock */ }
+      hiit.wakeLock = null;
+    }
+
+    function stopHiitTimer() {
+      if (hiit.interval) { clearInterval(hiit.interval); hiit.interval = null; }
+    }
+
+    function hiitRemainingMs() {
+      return hiit.paused ? hiit.pausedRemainingMs : Math.max(0, hiit.phaseEndAt - Date.now());
+    }
+
+    function hiitActiveElapsedMs() {
+      const now = Date.now();
+      return now - hiit.startedAt - hiit.pausedMs - (hiit.paused ? now - hiit.pauseStartedAt : 0);
+    }
+
+    function openHiitWorkout(plan) {
+      if (!plan) return;
+      stopHiitTimer();
+      releaseHiitWakeLock();
+      ensureAudioContext();
+      hiit = {
+        active: true, finished: false, plan, phase: 'prep', round: 1, phaseTotal: HIIT_PREP_SEC, phaseEndAt: 0,
+        paused: false, pausedRemainingMs: 0, pauseStartedAt: 0, pausedMs: 0, startedAt: Date.now(),
+        workMs: 0, roundsDone: 0, lastTickSec: null, interval: null, wakeLock: null, lastEntry: null,
+      };
+      const modal = document.getElementById('hiitModal');
+      document.getElementById('hiitRoutineName').textContent = plan.name;
+      document.getElementById('hiitActivePanel').classList.remove('hidden');
+      document.getElementById('hiitDonePanel').classList.add('hidden');
+      modal.classList.remove('hidden');
+      document.body.style.overflow = 'hidden';
+      hiitEnterPhase('prep', 1, hiit.startedAt);
+      paintHiitClock();
+      hiit.interval = setInterval(hiitTick, 100);
+      requestHiitWakeLock();
+      document.getElementById('hiitPauseBtn').focus({ preventScroll: true });
+    }
+
+    function hiitEnterPhase(phase, round, startAt) {
+      hiit.phase = phase;
+      hiit.round = round;
+      hiit.phaseTotal = phase === 'prep' ? HIIT_PREP_SEC : phase === 'work' ? hiit.plan.work : hiit.plan.rest;
+      hiit.phaseEndAt = startAt + hiit.phaseTotal * 1000;
+      hiit.lastTickSec = null;
+      if (phase === 'work') playHiitWorkTone();
+      else if (phase === 'rest') playHiitRestTone();
+      paintHiitPhase();
+    }
+
+    // Cierra la fase actual (natural = el tiempo llegó a 0) y pasa a la siguiente
+    function hiitAdvance(at, natural) {
+      const totalMs = hiit.phaseTotal * 1000;
+      const elapsed = natural ? totalMs : Math.max(0, totalMs - hiitRemainingMs());
+      if (hiit.phase === 'prep') { hiitEnterPhase('work', 1, at); return true; }
+      if (hiit.phase === 'work') {
+        hiit.workMs += elapsed;
+        if (natural || elapsed >= totalMs / 2) hiit.roundsDone = Math.max(hiit.roundsDone, hiit.round);
+        if (hiit.round >= hiit.plan.rounds) { finishHiitWorkout(); return false; }
+        if (hiit.plan.rest > 0) hiitEnterPhase('rest', hiit.round, at);
+        else hiitEnterPhase('work', hiit.round + 1, at);
+        return true;
+      }
+      if (hiit.phase === 'rest') { hiitEnterPhase('work', hiit.round + 1, at); return true; }
+      return false;
+    }
+
+    function hiitTick() {
+      if (!hiit.active || hiit.finished || hiit.paused) return;
+      let guard = 0;
+      while (Date.now() >= hiit.phaseEndAt && guard < 500) {
+        guard += 1;
+        if (!hiitAdvance(hiit.phaseEndAt, true)) return;
+      }
+      paintHiitClock();
+    }
+
+    function paintHiitPhase() {
+      const modal = document.getElementById('hiitModal');
+      modal.dataset.phase = hiit.phase;
+      modal.dataset.paused = hiit.paused ? 'true' : 'false';
+      document.getElementById('hiitPhaseLabel').textContent = hiit.paused ? '⏸ EN PAUSA' : HIIT_PHASE_TEXT[hiit.phase] || '';
+      const total = hiit.plan.rounds;
+      document.getElementById('hiitRoundLabel').textContent = hiit.phase === 'prep'
+        ? `Ronda 1 de ${total} · ¡empieza ya!`
+        : hiit.phase === 'rest' ? `Ronda ${hiit.round} de ${total} completada` : `Ronda ${hiit.round} de ${total}`;
+      const upcoming = hiit.phase === 'work' ? hiit.round : hiit.phase === 'rest' ? hiit.round + 1 : 1;
+      const ex = hiitExerciseFor(upcoming);
+      document.getElementById('hiitExerciseCaption').textContent = hiit.phase === 'work' ? 'Ejercicio actual' : 'A continuación';
+      document.getElementById('hiitExerciseName').textContent = ex.name;
+      document.getElementById('hiitExerciseMeta').textContent = `Ronda ${upcoming} · ${hiit.plan.work}s trabajo / ${hiit.plan.rest}s descanso`;
+      const gif = document.getElementById('hiitGif');
+      if (gif.dataset.gif !== ex.gif) { gif.dataset.gif = ex.gif; gif.src = ex.gif; gif.alt = `Demostración de ${ex.name}`; }
+      document.getElementById('hiitPauseBtn').textContent = hiit.paused ? '▶ Reanudar' : '⏸ Pausar';
+    }
+
+    function paintHiitClock() {
+      const remainingMs = hiitRemainingMs();
+      const sec = Math.ceil(remainingMs / 1000);
+      document.getElementById('hiitCountdown').textContent = fmtClock(sec);
+      const pct = hiit.phaseTotal > 0 ? Math.max(0, Math.min(100, (remainingMs / (hiit.phaseTotal * 1000)) * 100)) : 0;
+      document.getElementById('hiitPhaseBar').style.width = pct + '%';
+      document.getElementById('hiitTotalTimer').textContent = '⏱️ ' + fmtRoutineClock(hiitActiveElapsedMs() / 1000);
+      // Cuenta atrás sonora (3-2-1) antes de que empiece cada intervalo de trabajo
+      if (!hiit.paused && (hiit.phase === 'prep' || hiit.phase === 'rest') && sec >= 1 && sec <= 3 && hiit.lastTickSec !== sec) {
+        hiit.lastTickSec = sec;
+        playHiitTick();
+      }
+    }
+
+    function toggleHiitPause() {
+      if (!hiit.active || hiit.finished) return;
+      const now = Date.now();
+      if (!hiit.paused) {
+        hiit.pausedRemainingMs = Math.max(0, hiit.phaseEndAt - now);
+        hiit.pauseStartedAt = now;
+        hiit.paused = true;
+      } else {
+        hiit.pausedMs += now - hiit.pauseStartedAt;
+        hiit.phaseEndAt = now + hiit.pausedRemainingMs;
+        hiit.paused = false;
+        ensureAudioContext();
+      }
+      paintHiitPhase();
+      paintHiitClock();
+    }
+
+    function skipHiitPhase() {
+      if (!hiit.active || hiit.finished) return;
+      if (hiit.paused) toggleHiitPause();
+      if (hiitAdvance(Date.now(), false)) paintHiitClock();
+    }
+
+    function persistHiitCompletion(plan, durationSec, workSec, roundsDone) {
+      const now = new Date();
+      const isoDate = now.toISOString();
+      const restSec = Math.max(0, durationSec - workSec);
+      const calories = Math.round((workSec / 60) * HIIT_KCAL_PER_MIN_WORK + (restSec / 60) * HIIT_KCAL_PER_MIN_REST);
+      const exercises = plan.exercises.map((key, i) => {
+        const ex = HIIT_EXERCISES[key];
+        const slots = (n) => (n > i ? Math.floor((n - 1 - i) / plan.exercises.length) + 1 : 0);
+        return {
+          name: ex.name,
+          detail: `${plan.work}s trabajo / ${plan.rest}s descanso`,
+          gif: ex.gif,
+          setsCompleted: slots(roundsDone),
+          setsTotal: slots(plan.rounds),
+        };
+      }).filter((ex) => ex.setsTotal > 0);
+      const entry = {
+        id: 'rh-' + now.getTime() + '-' + Math.random().toString(36).slice(2, 7),
+        routineId: plan.id,
+        name: plan.name,
+        title: plan.name,
+        category: 'hiit',
+        categoryLabel: routineCategoryLabel('hiit'),
+        mode: 'hiit',
+        date: isoDate,
+        timestamp: isoDate,
+        durationSec,
+        workSec,
+        restSec,
+        workInterval: plan.work,
+        restInterval: plan.rest,
+        rounds: plan.rounds,
+        roundsCompleted: roundsDone,
+        calories,
+        setsCompleted: roundsDone,
+        setsTotal: plan.rounds,
+        exercises,
+      };
+      if (roundsDone > 0) {
+        const history = getRoutineHistory();
+        history.unshift(entry);
+        saveRoutineHistory(history);
+        updateDashboardStats();
+        renderRoutineHistory();
+      }
+      return entry;
+    }
+
+    function finishHiitWorkout() {
+      if (!hiit.active || hiit.finished) return;
+      hiit.finished = true;
+      hiit.phase = 'done';
+      stopHiitTimer();
+      releaseHiitWakeLock();
+      const durationSec = Math.max(1, Math.round(hiitActiveElapsedMs() / 1000));
+      const workSec = Math.min(durationSec, Math.round(hiit.workMs / 1000));
+      const entry = persistHiitCompletion(hiit.plan, durationSec, workSec, hiit.roundsDone);
+      hiit.lastEntry = entry;
+      const modal = document.getElementById('hiitModal');
+      modal.dataset.phase = 'done';
+      modal.dataset.paused = 'false';
+      document.getElementById('hiitActivePanel').classList.add('hidden');
+      document.getElementById('hiitDonePanel').classList.remove('hidden');
+      document.getElementById('hiitDoneName').textContent = hiit.plan.name;
+      document.getElementById('hiitDoneTime').textContent = fmtRoutineClock(entry.durationSec);
+      document.getElementById('hiitDoneWork').textContent = fmtRoutineClock(entry.workSec);
+      document.getElementById('hiitDoneRounds').textContent = `${entry.roundsCompleted}/${entry.rounds}`;
+      document.getElementById('hiitDoneKcal').textContent = entry.calories + ' kcal';
+      playHiitFinishTone();
+      showToast(entry.roundsCompleted > 0
+        ? `⚡ ¡HIIT completado en ${fmtRoutineDurationText(entry.durationSec)}! Guardado en tu historial.`
+        : 'Sin rondas completadas: la sesión no se guardó en el historial.');
+    }
+
+    function closeHiitWorkout(force = false) {
+      if (!hiit.active) return;
+      if (!force && !hiit.finished) {
+        const ok = window.confirm('¿Salir del HIIT? El progreso de esta sesión no se guardará.');
+        if (!ok) return;
+      }
+      stopHiitTimer();
+      releaseHiitWakeLock();
+      hiit.active = false;
+      hiit.phase = 'idle';
+      document.getElementById('hiitModal').classList.add('hidden');
+      document.body.style.overflow = '';
+    }
+
+    // ============ YOGA / MOVILIDAD y CROSSFIT / WOD ============
+    const yogaPlanSeconds = (p) => p.poses.reduce((a, [, sec]) => a + (yogaHold || sec), 0);
+    const wodItemText = ([key, reps]) => `${reps} ${WOD_EXERCISES[key].name}`;
+    const flowKindLabel = (kind) => ({ yoga: '🧘 Yoga / Movilidad', amrap: '🔁 CrossFit · AMRAP', emom: '⏰ CrossFit · EMOM' }[kind] || '');
+
+    function renderYogaPresets() {
+      document.querySelectorAll('[data-yoga-hold]').forEach((b) => {
+        const active = (parseInt(b.dataset.yogaHold, 10) || 0) === yogaHold;
+        b.classList.toggle('bg-teal-300', active);
+        b.classList.toggle('text-ink', active);
+        b.classList.toggle('text-slate-400', !active);
+      });
+      document.getElementById('yogaPresetGrid').innerHTML = YOGA_PRESETS.map((p) => `
+        <div class="bg-slate900 border border-slate800 rounded-2xl p-5 flex flex-col gap-3">
+          <div class="flex items-start justify-between">
+            <span class="text-3xl">${p.emoji}</span>
+            <span class="text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full bg-teal-300/10 text-teal-300">Yoga / Movilidad</span>
+          </div>
+          <h3 class="text-lg font-extrabold text-white">${esc(p.name)}</h3>
+          <p class="text-xs text-slate-400 font-medium">${esc(p.level)} · ${p.poses.length} posturas · ${fmtRoutineDurationText(yogaPlanSeconds(p))}</p>
+          <p class="text-sm text-slate-300 font-medium">${esc(p.desc)}</p>
+          <ol class="text-[11px] text-slate-400 font-medium flex-1 space-y-0.5">
+            ${p.poses.map(([key, sec]) => `<li class="flex justify-between gap-2"><span>${esc(YOGA_POSES[key].name)}</span><span class="text-teal-300 font-bold tabular-nums">${yogaHold || sec} s</span></li>`).join('')}
+          </ol>
+          <button type="button" data-yoga="${p.id}" class="mt-1 px-4 py-2.5 rounded-xl bg-teal-300 text-ink font-extrabold text-sm hover:bg-teal-200 transition-colors">🧘 Iniciar secuencia</button>
+        </div>`).join('');
+    }
+
+    function renderWodPresets() {
+      const card = (p) => {
+        const minutes = wodMinutes[p.id] || p.minutes;
+        const isAmrap = p.type === 'amrap';
+        const list = isAmrap
+          ? p.items.map(wodItemText).join(' · ')
+          : p.items.map((it, i) => `Min ${i + 1}: ${wodItemText(it)}`).join(' · ');
+        return `
+        <div class="bg-slate900 border border-slate800 rounded-2xl p-5 flex flex-col gap-3">
+          <div class="flex items-start justify-between">
+            <span class="text-3xl">${p.emoji}</span>
+            <span class="text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full ${isAmrap ? 'bg-red-500/10 text-red-400' : 'bg-orange-400/10 text-orange-300'}">${isAmrap ? 'AMRAP' : 'EMOM'}</span>
+          </div>
+          <h3 class="text-lg font-extrabold text-white">${esc(p.name)}</h3>
+          <p class="text-xs text-slate-400 font-medium">${esc(p.level)} · ${minutes} min</p>
+          <p class="text-sm text-slate-300 font-medium">${esc(p.desc)}</p>
+          <p class="text-[11px] text-slate-400 font-semibold flex-1">${esc(list)}${isAmrap ? ' <span class="text-slate-500">(por ronda)</span>' : ''}</p>
+          <div class="flex flex-wrap items-center gap-1.5">
+            <span class="text-[10px] font-bold uppercase tracking-wider text-slate-500 mr-1">Duración</span>
+            ${p.options.map((m) => `<button type="button" data-wod-id="${p.id}" data-wod-min="${m}" aria-pressed="${m === minutes}" class="px-3 py-1.5 rounded-lg text-xs font-extrabold transition-colors ${m === minutes ? 'bg-orange-400 text-ink' : 'bg-slate800 text-slate-300 hover:bg-[#334155]'}">${m}′</button>`).join('')}
+          </div>
+          <button type="button" data-wod="${p.id}" class="mt-1 px-4 py-2.5 rounded-xl bg-orange-400 text-ink font-extrabold text-sm hover:bg-orange-300 transition-colors">${isAmrap ? '🔁 Iniciar AMRAP' : '⏰ Iniciar EMOM'}</button>
+        </div>`;
+      };
+      document.getElementById('amrapGrid').innerHTML = WOD_PRESETS.filter((p) => p.type === 'amrap').map(card).join('');
+      document.getElementById('emomGrid').innerHTML = WOD_PRESETS.filter((p) => p.type === 'emom').map(card).join('');
+    }
+
+    function buildYogaPlan(p) {
+      if (!p) return null;
+      return {
+        id: p.id, kind: 'yoga', category: 'yoga', name: p.name, emoji: p.emoji,
+        segments: p.poses.map(([key, sec]) => ({ key, sec: yogaHold || sec })),
+      };
+    }
+
+    function buildWodPlan(p) {
+      if (!p) return null;
+      const minutes = wodMinutes[p.id] || p.minutes;
+      const isAmrap = p.type === 'amrap';
+      return {
+        id: p.id, kind: p.type, category: 'wod', name: `${p.name} · ${isAmrap ? 'AMRAP' : 'EMOM'} ${minutes}′`, emoji: p.emoji,
+        minutes, items: p.items,
+        segments: isAmrap
+          ? [{ sec: minutes * 60 }]
+          : Array.from({ length: minutes }, (_, i) => ({ sec: 60, item: i % p.items.length })),
+      };
+    }
+
+    const playYogaPoseTone = () => { playHiitTone(528, 0, 0.9, 0.16); playHiitTone(792, 0.12, 0.8, 0.06); };
+    const playYogaFinishTone = () => { playHiitTone(396, 0, 1.8, 0.16); playHiitTone(528, 0.35, 1.6, 0.14); playHiitTone(660, 0.7, 1.8, 0.12); };
+    const playWodMinuteTone = () => { playHiitTone(988, 0, 0.12, 0.26, 'square'); playHiitTone(1319, 0.15, 0.12, 0.26, 'square'); playHiitTone(1760, 0.3, 0.3, 0.26, 'square'); };
+    const playAmrapRoundTone = () => playHiitTone(1175, 0, 0.14, 0.18, 'triangle');
+
+    async function requestFlowWakeLock() {
+      try {
+        if (flow.active && !flow.finished && navigator.wakeLock && document.visibilityState === 'visible') {
+          flow.wakeLock = await navigator.wakeLock.request('screen');
+        }
+      } catch (e) { flow.wakeLock = null; }
+    }
+    function releaseFlowWakeLock() {
+      try { if (flow.wakeLock) flow.wakeLock.release(); } catch (e) { /* sin wake lock */ }
+      flow.wakeLock = null;
+    }
+    function stopFlowTimer() {
+      if (flow.interval) { clearInterval(flow.interval); flow.interval = null; }
+    }
+    const flowRemainingMs = () => (flow.paused ? flow.pausedRemainingMs : Math.max(0, flow.segEndAt - Date.now()));
+    function flowActiveElapsedMs() {
+      const now = Date.now();
+      return now - flow.startedAt - flow.pausedMs - (flow.paused ? now - flow.pauseStartedAt : 0);
+    }
+
+    function openFlowWorkout(plan) {
+      if (!plan) return;
+      stopFlowTimer();
+      releaseFlowWakeLock();
+      ensureAudioContext();
+      flow = {
+        active: true, finished: false, plan, segIdx: -1, segTotal: FLOW_PREP_SEC, segEndAt: 0,
+        paused: false, pausedRemainingMs: 0, pauseStartedAt: 0, pausedMs: 0, startedAt: Date.now(),
+        activeMs: 0, segDone: plan.segments.map(() => false), rounds: 0, checks: new Set(),
+        lastTickSec: null, minuteWarned: false, interval: null, wakeLock: null, lastEntry: null,
+      };
+      document.getElementById('flowKindLabel').textContent = flowKindLabel(plan.kind);
+      document.getElementById('flowRoutineName').textContent = plan.name;
+      document.getElementById('flowActivePanel').classList.remove('hidden');
+      document.getElementById('flowDonePanel').classList.add('hidden');
+      document.getElementById('flowAmrapPanel').classList.toggle('hidden', plan.kind !== 'amrap');
+      document.getElementById('flowModal').classList.remove('hidden');
+      document.body.style.overflow = 'hidden';
+      flowEnterSegment(-1, flow.startedAt);
+      paintFlowClock();
+      flow.interval = setInterval(flowTick, 100);
+      requestFlowWakeLock();
+      document.getElementById('flowPauseBtn').focus({ preventScroll: true });
+    }
+
+    function flashFlowModal() {
+      const modal = document.getElementById('flowModal');
+      modal.classList.remove('flow-flash');
+      void modal.offsetWidth;
+      modal.classList.add('flow-flash');
+    }
+
+    function flowEnterSegment(idx, startAt) {
+      flow.segIdx = idx;
+      flow.segTotal = idx < 0 ? FLOW_PREP_SEC : flow.plan.segments[idx].sec;
+      flow.segEndAt = startAt + flow.segTotal * 1000;
+      flow.lastTickSec = null;
+      if (idx >= 0) {
+        if (flow.plan.kind === 'yoga') playYogaPoseTone();
+        else playWodMinuteTone();
+        flashFlowModal();
+      }
+      paintFlowPhase();
+    }
+
+    // Cierra el tramo actual (natural = el tiempo llegó a 0) y pasa al siguiente
+    function flowAdvance(at, natural) {
+      const totalMs = flow.segTotal * 1000;
+      const elapsed = natural ? totalMs : Math.max(0, totalMs - flowRemainingMs());
+      if (flow.segIdx < 0) { flowEnterSegment(0, at); return true; }
+      flow.activeMs += elapsed;
+      if (natural || elapsed >= totalMs / 2) flow.segDone[flow.segIdx] = true;
+      if (flow.segIdx + 1 >= flow.plan.segments.length) { finishFlowWorkout(); return false; }
+      flowEnterSegment(flow.segIdx + 1, at);
+      return true;
+    }
+
+    function flowTick() {
+      if (!flow.active || flow.finished || flow.paused) return;
+      let guard = 0;
+      while (Date.now() >= flow.segEndAt && guard < 500) {
+        guard += 1;
+        if (!flowAdvance(flow.segEndAt, true)) return;
+      }
+      if (flow.plan.kind === 'amrap' && flow.segIdx === 0 && !flow.minuteWarned && flow.segTotal > 90 && flowRemainingMs() <= 60000) {
+        flow.minuteWarned = true;
+        playHiitRestTone();
+        showToast('⏳ ¡Último minuto del AMRAP!');
+      }
+      paintFlowClock();
+    }
+
+    function flowCardInfo() {
+      const { plan, segIdx } = flow;
+      const idx = Math.max(0, segIdx);
+      if (plan.kind === 'yoga') {
+        const pose = YOGA_POSES[plan.segments[idx].key];
+        const next = plan.segments[idx + 1];
+        return {
+          caption: segIdx < 0 ? 'Primera postura' : 'Postura actual', name: pose.name, gif: pose.gif,
+          meta: next ? `Siguiente: ${YOGA_POSES[next.key].name}` : 'Última postura · respira y suelta',
+        };
+      }
+      if (plan.kind === 'emom') {
+        const item = plan.items[plan.segments[idx].item];
+        const next = plan.segments[idx + 1];
+        return {
+          caption: segIdx < 0 ? 'Primer minuto' : 'Este minuto', name: wodItemText(item), gif: WOD_EXERCISES[item[0]].gif,
+          meta: next ? `Siguiente minuto: ${wodItemText(plan.items[next.item])}` : 'Último minuto · ¡a tope!',
+        };
+      }
+      const firstOpen = plan.items.findIndex((_, i) => !flow.checks.has(i));
+      const item = plan.items[firstOpen < 0 ? 0 : firstOpen];
+      return {
+        caption: 'Siguiente ejercicio', name: wodItemText(item), gif: WOD_EXERCISES[item[0]].gif,
+        meta: `Ronda ${flow.rounds + 1} · marca cada ejercicio al terminarlo`,
+      };
+    }
+
+    function paintFlowPhase() {
+      const { plan, segIdx } = flow;
+      const modal = document.getElementById('flowModal');
+      modal.dataset.kind = plan.kind;
+      modal.dataset.phase = segIdx < 0 ? 'prep' : 'active';
+      modal.dataset.paused = flow.paused ? 'true' : 'false';
+      const n = plan.segments.length;
+      let label = '¡PREPÁRATE!';
+      let step = '';
+      if (plan.kind === 'yoga') {
+        if (segIdx >= 0) label = YOGA_POSES[plan.segments[segIdx].key].name;
+        step = segIdx < 0 ? `${n} posturas · colócate en la esterilla` : `Postura ${segIdx + 1} de ${n}`;
+      } else if (plan.kind === 'emom') {
+        if (segIdx >= 0) label = `MINUTO ${segIdx + 1}`;
+        step = segIdx < 0 ? `EMOM de ${n} minutos · empieza con el pitido` : `Minuto ${segIdx + 1} de ${n} · descansa lo que sobre`;
+      } else {
+        if (segIdx >= 0) label = `AMRAP ${plan.minutes}′`;
+        step = segIdx < 0 ? `${plan.minutes} minutos · máximas rondas posibles` : 'Tiempo restante';
+      }
+      document.getElementById('flowPhaseLabel').textContent = flow.paused ? '⏸ EN PAUSA' : label;
+      document.getElementById('flowStepLabel').textContent = step;
+      const info = flowCardInfo();
+      document.getElementById('flowExerciseCaption').textContent = info.caption;
+      document.getElementById('flowExerciseName').textContent = info.name;
+      document.getElementById('flowExerciseMeta').textContent = info.meta;
+      const gif = document.getElementById('flowGif');
+      if (gif.dataset.gif !== info.gif) { gif.dataset.gif = info.gif; gif.src = info.gif; gif.alt = `Demostración de ${info.name}`; }
+      document.getElementById('flowPauseBtn').textContent = flow.paused ? '▶ Reanudar' : '⏸ Pausar';
+      document.getElementById('flowSkipBtn').textContent = segIdx < 0
+        ? 'Empezar ya ⏭'
+        : plan.kind === 'yoga' ? 'Siguiente postura ⏭' : plan.kind === 'emom' ? 'Saltar minuto ⏭' : 'Terminar WOD 🏁';
+      document.getElementById('flowHint').textContent = plan.kind === 'yoga'
+        ? '🔔 Tono suave = cambio de postura · campana larga = fin · Espacio: pausar'
+        : plan.kind === 'emom'
+          ? '🔔 Triple pitido = empieza el minuto · 3-2-1 antes de cada minuto · Espacio: pausar'
+          : '🔔 Triple pitido = ¡ya! · doble pitido = queda 1 minuto · pitido largo = fin · Espacio: pausar';
+      if (plan.kind === 'amrap') renderAmrapPanel();
+    }
+
+    function renderAmrapPanel() {
+      const locked = flow.segIdx < 0 || flow.finished;
+      document.getElementById('flowRoundCount').textContent = flow.rounds;
+      const extra = flow.checks.size;
+      document.getElementById('flowRepsExtra').textContent = extra
+        ? `+ ${extra} ${extra === 1 ? 'ejercicio' : 'ejercicios'} de la ronda en curso`
+        : locked ? 'Empieza al sonar el triple pitido' : 'Marca cada ejercicio o pulsa +1 ronda';
+      document.getElementById('flowRoundPlus').disabled = locked;
+      document.getElementById('flowRoundMinus').disabled = locked || (flow.rounds === 0 && extra === 0);
+      document.getElementById('flowAmrapList').innerHTML = flow.plan.items.map((it, i) => {
+        const done = flow.checks.has(i);
+        return `<button type="button" data-amrap-item="${i}" aria-pressed="${done}" ${locked ? 'disabled' : ''} class="flex items-center gap-3 w-full px-3 py-2.5 rounded-xl font-extrabold transition-colors disabled:opacity-60 ${done ? 'bg-white text-red-600' : 'bg-black/25 hover:bg-black/35'}"><span class="w-6 h-6 rounded-md border-2 border-current flex items-center justify-center text-sm shrink-0">${done ? '✓' : ''}</span><span>${esc(wodItemText(it))}</span></button>`;
+      }).join('');
+    }
+
+    function completeAmrapRound() {
+      flow.rounds += 1;
+      flow.checks.clear();
+      playAmrapRoundTone();
+      flashFlowModal();
+      paintFlowPhase();
+    }
+    function toggleAmrapItem(i) {
+      if (!flow.active || flow.finished || flow.plan.kind !== 'amrap' || flow.segIdx < 0) return;
+      if (flow.checks.has(i)) flow.checks.delete(i); else flow.checks.add(i);
+      if (flow.checks.size === flow.plan.items.length) { completeAmrapRound(); return; }
+      paintFlowPhase();
+    }
+    function addAmrapRound() {
+      if (!flow.active || flow.finished || flow.plan.kind !== 'amrap' || flow.segIdx < 0) return;
+      completeAmrapRound();
+    }
+    function undoAmrap() {
+      if (!flow.active || flow.finished || flow.plan.kind !== 'amrap' || flow.segIdx < 0) return;
+      if (flow.checks.size) flow.checks.clear();
+      else flow.rounds = Math.max(0, flow.rounds - 1);
+      paintFlowPhase();
+    }
+
+    function paintFlowClock() {
+      const remainingMs = flowRemainingMs();
+      const sec = Math.ceil(remainingMs / 1000);
+      document.getElementById('flowCountdown').textContent = fmtClock(sec);
+      const pct = flow.segTotal > 0 ? Math.max(0, Math.min(100, (remainingMs / (flow.segTotal * 1000)) * 100)) : 0;
+      document.getElementById('flowBar').style.width = pct + '%';
+      document.getElementById('flowTotalTimer').textContent = '⏱️ ' + fmtRoutineClock(flowActiveElapsedMs() / 1000);
+      // 3-2-1 sonoro antes de empezar y antes de cada minuto del EMOM / final del AMRAP (el yoga queda en silencio)
+      const ticks = flow.segIdx < 0 || flow.plan.kind !== 'yoga';
+      if (ticks && !flow.paused && sec >= 1 && sec <= 3 && flow.lastTickSec !== sec) {
+        flow.lastTickSec = sec;
+        playHiitTick();
+      }
+    }
+
+    function toggleFlowPause() {
+      if (!flow.active || flow.finished) return;
+      const now = Date.now();
+      if (!flow.paused) {
+        flow.pausedRemainingMs = Math.max(0, flow.segEndAt - now);
+        flow.pauseStartedAt = now;
+        flow.paused = true;
+      } else {
+        flow.pausedMs += now - flow.pauseStartedAt;
+        flow.segEndAt = now + flow.pausedRemainingMs;
+        flow.paused = false;
+        ensureAudioContext();
+      }
+      paintFlowPhase();
+      paintFlowClock();
+    }
+
+    function skipFlowStep() {
+      if (!flow.active || flow.finished) return;
+      if (flow.paused) toggleFlowPause();
+      if (flow.plan.kind === 'amrap' && flow.segIdx >= 0) {
+        flow.activeMs += Math.max(0, flow.segTotal * 1000 - flowRemainingMs());
+        finishFlowWorkout();
+        return;
+      }
+      if (flowAdvance(Date.now(), false)) paintFlowClock();
+    }
+
+    function persistFlowCompletion(plan, durationSec, workSec) {
+      const now = new Date();
+      const isoDate = now.toISOString();
+      const kind = plan.kind;
+      const calories = Math.round((workSec / 60) * FLOW_KCAL_PER_MIN[kind]);
+      const unitsDone = flow.segDone.filter(Boolean).length;
+      let exercises = [];
+      let extra = {};
+      let saved = false;
+      if (kind === 'yoga') {
+        exercises = plan.segments.map((seg, i) => ({
+          name: YOGA_POSES[seg.key].name, detail: `${seg.sec} s`, gif: YOGA_POSES[seg.key].gif,
+          setsCompleted: flow.segDone[i] ? 1 : 0, setsTotal: 1,
+        }));
+        extra = { posesCompleted: unitsDone, posesTotal: plan.segments.length, setsCompleted: unitsDone, setsTotal: plan.segments.length };
+        saved = unitsDone > 0;
+      } else if (kind === 'emom') {
+        exercises = plan.items.map((it, k) => ({
+          name: WOD_EXERCISES[it[0]].name, detail: `${it[1]} cada minuto`, gif: WOD_EXERCISES[it[0]].gif,
+          setsCompleted: plan.segments.filter((seg, i) => seg.item === k && flow.segDone[i]).length,
+          setsTotal: plan.segments.filter((seg) => seg.item === k).length,
+        }));
+        extra = { wodType: 'EMOM', minutes: plan.minutes, minutesCompleted: unitsDone, setsCompleted: unitsDone, setsTotal: plan.minutes };
+        saved = unitsDone > 0;
+      } else {
+        exercises = plan.items.map((it, k) => ({
+          name: WOD_EXERCISES[it[0]].name, detail: `${it[1]} por ronda`, gif: WOD_EXERCISES[it[0]].gif,
+          setsCompleted: flow.rounds + (flow.checks.has(k) ? 1 : 0), setsTotal: flow.rounds + (flow.checks.has(k) ? 1 : 0),
+        }));
+        extra = {
+          wodType: 'AMRAP', minutes: plan.minutes, roundsCompleted: flow.rounds, extraExercises: flow.checks.size,
+          score: `${flow.rounds} + ${flow.checks.size}`, setsCompleted: flow.rounds, setsTotal: flow.rounds,
+        };
+        saved = flow.rounds + flow.checks.size > 0 || workSec >= 60;
+      }
+      const entry = Object.assign({
+        id: 'rh-' + now.getTime() + '-' + Math.random().toString(36).slice(2, 7),
+        routineId: plan.id,
+        name: plan.name,
+        title: plan.name,
+        category: plan.category,
+        categoryLabel: routineCategoryLabel(plan.category),
+        mode: kind,
+        date: isoDate,
+        timestamp: isoDate,
+        durationSec,
+        workSec,
+        calories,
+        exercises,
+      }, extra);
+      if (saved) {
+        const history = getRoutineHistory();
+        history.unshift(entry);
+        saveRoutineHistory(history);
+        updateDashboardStats();
+        renderRoutineHistory();
+      }
+      return { entry, saved };
+    }
+
+    function flowStatHTML(label, value, cls) {
+      return `<div class="bg-slate900 border border-slate800 rounded-xl p-3"><p class="text-[10px] uppercase tracking-wider text-slate-500 font-bold">${label}</p><p class="font-extrabold ${cls} text-xl tabular-nums mt-1">${value}</p></div>`;
+    }
+
+    function finishFlowWorkout() {
+      if (!flow.active || flow.finished) return;
+      flow.finished = true;
+      stopFlowTimer();
+      releaseFlowWakeLock();
+      const plan = flow.plan;
+      const durationSec = Math.max(1, Math.round(flowActiveElapsedMs() / 1000));
+      const workSec = Math.min(durationSec, Math.round(flow.activeMs / 1000));
+      const { entry, saved } = persistFlowCompletion(plan, durationSec, workSec);
+      flow.lastEntry = entry;
+      const modal = document.getElementById('flowModal');
+      modal.dataset.phase = 'done';
+      modal.dataset.paused = 'false';
+      document.getElementById('flowActivePanel').classList.add('hidden');
+      document.getElementById('flowDonePanel').classList.remove('hidden');
+      document.getElementById('flowDoneName').textContent = plan.name;
+      const stats = [flowStatHTML('Tiempo total', fmtRoutineClock(durationSec), 'text-duck')];
+      let title;
+      let icon;
+      if (plan.kind === 'yoga') {
+        title = '¡Secuencia completada!'; icon = '🧘';
+        stats.push(flowStatHTML('Posturas', `${entry.posesCompleted}/${entry.posesTotal}`, 'text-teal-300'));
+        stats.push(flowStatHTML('En postura', fmtRoutineClock(workSec), 'text-teal-300'));
+      } else if (plan.kind === 'emom') {
+        title = '¡EMOM completado!'; icon = '⏰';
+        stats.push(flowStatHTML('Minutos', `${entry.minutesCompleted}/${entry.minutes}`, 'text-orange-300'));
+        stats.push(flowStatHTML('Trabajo', fmtRoutineClock(workSec), 'text-orange-300'));
+      } else {
+        title = '¡AMRAP terminado!'; icon = '🔁';
+        stats.push(flowStatHTML('Rondas', entry.roundsCompleted, 'text-orange-300'));
+        stats.push(flowStatHTML('Puntuación', `${entry.roundsCompleted} + ${entry.extraExercises}`, 'text-orange-300'));
+      }
+      stats.push(flowStatHTML('Calorías', entry.calories + ' kcal', 'text-duck'));
+      document.getElementById('flowDoneTitle').textContent = title;
+      document.getElementById('flowDoneIcon').textContent = icon;
+      document.getElementById('flowDoneStats').innerHTML = stats.join('');
+      document.getElementById('flowDoneNote').textContent = saved
+        ? `Estimación: ~${FLOW_KCAL_PER_MIN[plan.kind]} kcal/min de ${plan.kind === 'yoga' ? 'yoga y movilidad' : 'WOD'}. Guardado en tu historial.`
+        : 'No completaste ningún tramo, así que la sesión no se guardó en el historial.';
+      if (plan.kind === 'yoga') playYogaFinishTone(); else playHiitFinishTone();
+      showToast(saved ? `${icon} ${title} Guardado en tu historial.` : 'Sesión sin completar: no se guardó en el historial.');
+    }
+
+    function closeFlowWorkout(force = false) {
+      if (!flow.active) return;
+      if (!force && !flow.finished) {
+        const ok = window.confirm('¿Salir del entrenamiento? El progreso de esta sesión no se guardará.');
+        if (!ok) return;
+      }
+      stopFlowTimer();
+      releaseFlowWakeLock();
+      flow.active = false;
+      document.getElementById('flowModal').classList.add('hidden');
+      document.body.style.overflow = '';
+    }
+
+
+    // ============ HISTORIAL ============
+    function renderHistory() {
+      const history = getRoutineHistory();
+      document.getElementById('historyCount').textContent = history.length === 1 ? '1 rutina completada' : history.length + ' rutinas completadas';
+      document.getElementById('clearHistoryBtn').classList.toggle('hidden', history.length === 0);
+      renderRoutineHistory();
+    }
+
+    function clearRoutineHistory() {
+      if (!confirm('¿Borrar todo el historial de rutinas? Esta acción no se puede deshacer.')) return;
+      saveRoutineHistory([]);
+      renderHistory();
+      showToast('Historial de rutinas borrado');
+    }
+
+    // ============ RUTINAS ============
+    function renderRoutines() {
+      const list = ROUTINES.filter((r) => routineFilter === 'all' || r.category === routineFilter);
+      const grid = document.getElementById('routineGrid');
+      grid.innerHTML = list.map((r) => `
+        <div class="bg-slate900 border border-slate800 rounded-2xl p-5 flex flex-col gap-3">
+          <div class="flex items-start justify-between">
+            <span class="text-3xl">${r.emoji}</span>
+            <span class="text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full ${r.category === 'gym' ? 'bg-duck/10 text-duck' : 'bg-emerald-400/10 text-emerald-400'}">${r.category === 'gym' ? 'Gimnasio / Fuerza' : 'Calistenia / Aire libre'}</span>
+          </div>
+          <h3 class="text-lg font-extrabold text-white">${r.name}</h3>
+          <p class="text-xs text-slate-400 font-medium">${r.level} · ~${r.minutes} min</p>
+          <p class="text-sm text-slate-300 font-medium">${r.exercises.length} ejercicios</p>
+          <p class="text-[11px] text-slate-500 font-medium flex-1">Fuente: <a href="${r.sourceUrl}" target="_blank" rel="noopener noreferrer" class="underline decoration-slate-600 hover:text-duck">${r.source}</a></p>
+          <div class="mt-1 flex flex-col sm:flex-row gap-2">
+            <button data-routine="${r.id}" class="flex-1 px-4 py-2.5 rounded-xl bg-duck text-ink font-extrabold text-sm hover:bg-duckDeep transition-colors">▶ Iniciar Entrenamiento Guiado</button>
+            <button data-checklist="${r.id}" class="px-4 py-2.5 rounded-xl bg-slate800 text-duck font-extrabold text-sm hover:bg-[#334155] transition-colors" title="Ver la lista de ejercicios">☑ Checklist</button>
+          </div>
+        </div>`).join('');
+    }
+
+    function startChecklistTimer() {
+      stopChecklistTimer();
+      const paint = () => {
+        const el = document.getElementById('checklistTimer');
+        if (!el || !routineSessionStart) return;
+        el.textContent = '⏱ ' + fmtRoutineClock((Date.now() - routineSessionStart) / 1000);
+      };
+      paint();
+      checklistTimerId = setInterval(paint, 1000);
+    }
+
+    function stopChecklistTimer() {
+      if (checklistTimerId) { clearInterval(checklistTimerId); checklistTimerId = null; }
+    }
+
+    function openChecklist(routineId) {
+      selectedRoutine = ROUTINES.find((r) => r.id === routineId);
+      if (!selectedRoutine) return;
+      const total = selectedRoutine.exercises.length;
+      const saved = getRoutineProgressStore()[selectedRoutine.id] || {};
+      const checkedSet = new Set((Array.isArray(saved.checked) ? saved.checked : [])
+        .filter((i) => Number.isInteger(i) && i >= 0 && i < total));
+      const savedIndex = Number.isInteger(saved.current) ? Math.min(Math.max(saved.current, 0), total - 1) : 0;
+      const savedStart = Number(saved.startedAt) || 0;
+      const now = Date.now();
+      routineSessionStart = savedStart && now - savedStart < 24 * 60 * 60 * 1000 ? savedStart : now;
+      currentExerciseIdx = savedIndex;
+      document.getElementById('checklistName').textContent = selectedRoutine.name;
+      document.getElementById('checklistMeta').textContent = `${selectedRoutine.level} · ~${selectedRoutine.minutes} min · ${total} ejercicios · GIF vía jsDelivr`;
+      renderChecklistList(checkedSet);
+      setCurrentExercise(savedIndex);
+      updateChecklistProgress();
+      startChecklistTimer();
+      const modalEl = document.getElementById('checklistModal');
+      if (checklistCloseTimer) { clearTimeout(checklistCloseTimer); checklistCloseTimer = null; }
+      modalEl.classList.remove('hidden', 'opacity-0');
+    }
+
+    function renderChecklistList(checkedSet = new Set()) {
+      const listEl = document.getElementById('checklistExercises');
+      listEl.innerHTML = selectedRoutine.exercises.map((ex, i) => `
+        <div data-exercise-row="${i}" data-completed="${checkedSet.has(i) ? 'true' : 'false'}" class="flex items-center gap-2 border rounded-xl p-2.5 cursor-pointer transition-colors">
+          <button type="button" data-select-exercise="${i}" aria-label="Ver ${ex.name}" class="flex-1 min-w-0 text-left px-1.5 py-1 rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-duck">
+            <span data-exercise-name class="font-bold text-slate-200 block text-sm">${ex.name}</span>
+            <span data-exercise-detail class="text-[11px] text-slate-400 font-medium block">${ex.detail}</span>
+          </button>
+          <input type="checkbox" class="w-5 h-5 accent-emerald-400 cursor-pointer shrink-0" data-exercise-idx="${i}" aria-label="Marcar ${ex.name} como completado" ${checkedSet.has(i) ? 'checked' : ''} />
+        </div>`).join('');
+    }
+
+    function setCurrentExercise(index) {
+      if (!selectedRoutine) return;
+      const total = selectedRoutine.exercises.length;
+      if (!total) return;
+      currentExerciseIdx = ((index % total) + total) % total;
+      const ex = selectedRoutine.exercises[currentExerciseIdx];
+      document.getElementById('currentExerciseName').textContent = ex.name;
+      document.getElementById('currentExerciseDetail').textContent = ex.detail;
+      document.getElementById('currentExerciseDesc').textContent = ex.desc;
+      document.getElementById('currentExercisePosition').textContent = `${currentExerciseIdx + 1} / ${total}`;
+      document.querySelectorAll('[data-exercise-row]').forEach((row) => {
+        const active = Number(row.dataset.exerciseRow) === currentExerciseIdx;
+        row.classList.toggle('border-yellow-400', active);
+        row.classList.toggle('bg-yellow-400/10', active);
+        row.classList.toggle('border-slate800', !active);
+        row.classList.toggle('bg-slate800/60', !active);
+        row.classList.toggle('hover:border-[#475569]', !active);
+        row.setAttribute('aria-current', active ? 'true' : 'false');
+      });
+      const prevEx = selectedRoutine.exercises[(currentExerciseIdx - 1 + total) % total];
+      const nextEx = selectedRoutine.exercises[(currentExerciseIdx + 1) % total];
+      document.getElementById('exercisePrevBtn').setAttribute('aria-label', 'Ejercicio anterior: ' + prevEx.name);
+      document.getElementById('exerciseNextBtn').setAttribute('aria-label', 'Ejercicio siguiente: ' + nextEx.name);
+
+      const img = document.getElementById('exerciseGif');
+      const loading = document.getElementById('gifLoading');
+      const fallback = document.getElementById('exerciseGifFallback');
+      document.getElementById('exerciseGifLink').href = ex.gif;
+      img.alt = 'Demostración animada de ' + ex.name;
+      fallback.classList.add('hidden');
+      const cached = img.getAttribute('src') === ex.gif && img.complete && img.naturalWidth > 0;
+      if (cached) {
+        loading.classList.add('hidden');
+        img.classList.remove('opacity-0');
+      } else {
+        loading.classList.remove('hidden');
+        img.classList.add('opacity-0');
+        img.src = ex.gif;
+      }
+      if (total > 1) {
+        [currentExerciseIdx - 1, currentExerciseIdx + 1].forEach((idx) => {
+          if (idx >= 0 && idx < total) { const pre = new Image(); pre.src = selectedRoutine.exercises[idx].gif; }
+        });
+      }
+      persistChecklistProgress();
+    }
+
+    function moveExercise(delta) {
+      if (selectedRoutine) setCurrentExercise(currentExerciseIdx + delta);
+    }
+
+    function persistChecklistProgress() {
+      if (!selectedRoutine) return;
+      const store = getRoutineProgressStore();
+      const checked = Array.from(document.querySelectorAll('[data-exercise-idx]'))
+        .filter((box) => box.checked)
+        .map((box) => Number(box.dataset.exerciseIdx));
+      if (!checked.length && currentExerciseIdx === 0) {
+        delete store[selectedRoutine.id];
+      } else {
+        store[selectedRoutine.id] = { checked, current: currentExerciseIdx, startedAt: routineSessionStart || Date.now(), updatedAt: new Date().toISOString() };
+      }
+      saveRoutineProgressStore(store);
+    }
+
+    function clearChecklistProgress(routineId) {
+      const store = getRoutineProgressStore();
+      delete store[routineId];
+      saveRoutineProgressStore(store);
+    }
+
+    function updateChecklistProgress() {
+      const boxes = Array.from(document.querySelectorAll('[data-exercise-idx]'));
+      const done = boxes.filter((b) => b.checked).length;
+      const pct = boxes.length ? Math.round((done / boxes.length) * 100) : 0;
+      document.getElementById('checklistProgress').style.width = pct + '%';
+      document.getElementById('checklistPercent').textContent = pct + '%';
+      document.getElementById('checklistDoneBtn').classList.toggle('hidden', done < boxes.length);
+      boxes.forEach((box) => {
+        const row = box.closest('[data-exercise-row]');
+        if (!row) return;
+        const name = row.querySelector('[data-exercise-name]');
+        const detail = row.querySelector('[data-exercise-detail]');
+        const isDone = box.checked;
+        row.dataset.completed = isDone ? 'true' : 'false';
+        if (name) {
+          name.classList.toggle('line-through', isDone);
+          name.classList.toggle('text-slate-400', isDone);
+          name.classList.toggle('text-slate-200', !isDone);
+        }
+        if (detail) {
+          detail.classList.toggle('text-slate-500', isDone);
+          detail.classList.toggle('text-slate-400', !isDone);
+        }
+      });
+      persistChecklistProgress();
+    }
+
+    // ============ TEMPORIZADOR DE DESCANSO ============
+    function setRestSeconds(sec) {
+      clearInterval(rest.interval);
+      rest.interval = null;
+      rest.running = false;
+      rest.total = sec;
+      rest.remaining = sec;
+      document.getElementById('restDisplay').textContent = fmtClock(sec);
+      document.getElementById('restStartBtn').textContent = 'Iniciar';
+    }
+
+    function toggleRest() {
+      const startBtn = document.getElementById('restStartBtn');
+      if (rest.running) {
+        rest.remaining = Math.max(0, Math.ceil((rest.endAt - Date.now()) / 1000));
+        clearInterval(rest.interval);
+        rest.interval = null;
+        rest.running = false;
+        startBtn.textContent = 'Reanudar';
+        return;
+      }
+      if (rest.remaining <= 0) rest.remaining = rest.total || 30;
+      rest.running = true;
+      startBtn.textContent = 'Pausar';
+      rest.endAt = Date.now() + rest.remaining * 1000;
+      rest.interval = setInterval(() => {
+        const remain = Math.max(0, Math.ceil((rest.endAt - Date.now()) / 1000));
+        rest.remaining = remain;
+        document.getElementById('restDisplay').textContent = fmtClock(remain);
+        if (remain <= 0) {
+          clearInterval(rest.interval);
+          rest.interval = null;
+          rest.running = false;
+          startBtn.textContent = 'Iniciar';
+          playRestTone();
+          showToast('🔔 ¡Descanso terminado!');
+        }
+      }, 250);
+    }
+
+    function resetRest() {
+      clearInterval(rest.interval);
+      rest.interval = null;
+      rest.running = false;
+      setRestSeconds(30);
+    }
+
+    function playRestTone() {
+      try {
+        const ctx = ensureAudioContext();
+        if (!ctx) return;
+        const now = ctx.currentTime;
+        [880, 1174.66].forEach((freq, i) => {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          const at = now + i * 0.18;
+          osc.type = 'sine';
+          osc.frequency.value = freq;
+          gain.gain.setValueAtTime(0, at);
+          gain.gain.linearRampToValueAtTime(0.22, at + 0.04);
+          gain.gain.exponentialRampToValueAtTime(0.001, at + 0.42);
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.start(at);
+          osc.stop(at + 0.45);
+        });
+      } catch (e) { /* audio no disponible */ }
+    }
+
+    // ============ EVENTOS ============
+    document.addEventListener('DOMContentLoaded', () => {
+      // Acceso
+      document.getElementById('authTabLogin').addEventListener('click', () => setAuthMode('login'));
+      document.getElementById('authTabSignup').addEventListener('click', () => setAuthMode('signup'));
+      document.getElementById('authForm').addEventListener('submit', submitAuth);
+      document.getElementById('logoutBtn').addEventListener('click', () => logout());
+
+      // Navegación
+      document.querySelectorAll('[data-view]').forEach((b) => b.addEventListener('click', () => showView(b.dataset.view)));
+      document.getElementById('dashStartBtn').addEventListener('click', () => showView('routines'));
+      document.getElementById('viewAllHistory').addEventListener('click', () => showView('history'));
+
+      // Rutinas
+      document.querySelectorAll('[data-filter]').forEach((b) => b.addEventListener('click', () => {
+        routineFilter = b.dataset.filter;
+        document.querySelectorAll('[data-filter]').forEach((x) => {
+          const active = x === b;
+          x.classList.toggle('bg-duck', active);
+          x.classList.toggle('text-ink', active);
+          x.classList.toggle('text-slate-400', !active);
+        });
+        renderRoutines();
+      }));
+      document.getElementById('routineGrid').addEventListener('click', (e) => {
+        const guidedBtn = e.target.closest('[data-routine]');
+        if (guidedBtn) { openGuidedWorkout(guidedBtn.dataset.routine); return; }
+        const checklistBtn = e.target.closest('[data-checklist]');
+        if (checklistBtn) openChecklist(checklistBtn.dataset.checklist);
+      });
+
+      // Checklist
+      const checklistModal = document.getElementById('checklistModal');
+      const closeChecklist = () => {
+        stopChecklistTimer();
+        checklistModal.classList.add('opacity-0');
+        if (checklistCloseTimer) clearTimeout(checklistCloseTimer);
+        checklistCloseTimer = setTimeout(() => {
+          checklistModal.classList.add('hidden');
+          checklistModal.classList.remove('opacity-0');
+          checklistCloseTimer = null;
+        }, 180);
+      };
+      document.getElementById('checklistCloseBtn').addEventListener('click', closeChecklist);
+      document.getElementById('checklistCloseBtn2').addEventListener('click', closeChecklist);
+
+      const gifImg = document.getElementById('exerciseGif');
+      gifImg.addEventListener('load', () => {
+        if (!selectedRoutine) return;
+        document.getElementById('gifLoading').classList.add('hidden');
+        document.getElementById('exerciseGifFallback').classList.add('hidden');
+        gifImg.classList.remove('opacity-0');
+      });
+      gifImg.addEventListener('error', () => {
+        if (!selectedRoutine) return;
+        document.getElementById('gifLoading').classList.add('hidden');
+        gifImg.classList.add('opacity-0');
+        document.getElementById('exerciseGifFallback').classList.remove('hidden');
+      });
+      document.getElementById('exercisePrevBtn').addEventListener('click', () => moveExercise(-1));
+      document.getElementById('exerciseNextBtn').addEventListener('click', () => moveExercise(1));
+      document.getElementById('checklistExercises').addEventListener('click', (e) => {
+        if (e.target.matches('[data-exercise-idx]') || e.target.closest('[data-exercise-idx]')) return;
+        const row = e.target.closest('[data-exercise-row]');
+        if (row) setCurrentExercise(Number(row.dataset.exerciseRow));
+      });
+      document.getElementById('checklistExercises').addEventListener('change', (e) => {
+        if (e.target.matches('[data-exercise-idx]')) updateChecklistProgress();
+      });
+      document.getElementById('checklistResetBtn').addEventListener('click', () => {
+        if (!selectedRoutine) return;
+        routineSessionStart = Date.now();
+        document.querySelectorAll('[data-exercise-idx]').forEach((box) => { box.checked = false; });
+        clearChecklistProgress(selectedRoutine.id);
+        setCurrentExercise(0);
+        updateChecklistProgress();
+        startChecklistTimer();
+        showToast('Progreso de la rutina reiniciado');
+      });
+      document.getElementById('checklistDoneBtn').addEventListener('click', () => {
+        if (!selectedRoutine) { closeChecklist(); return; }
+        const routine = selectedRoutine;
+        const durationSec = routineSessionStart ? Math.max(1, Math.round((Date.now() - routineSessionStart) / 1000)) : 1;
+        const entry = persistRoutineCompletion(routine, durationSec, routine.exercises.map((ex) => ({
+          name: ex.name,
+          detail: ex.detail,
+          gif: ex.gif,
+        })));
+        clearChecklistProgress(routine.id);
+        document.querySelectorAll('[data-exercise-idx]').forEach((box) => { box.checked = false; });
+        currentExerciseIdx = 0;
+        updateChecklistProgress();
+        closeChecklist();
+        showView('routines');
+        showToast(`🎯 ¡Rutina completada en ${fmtRoutineDurationText(entry.durationSec)}! Buen trabajo.`);
+        setTimeout(focusLatestCompletedRoutine, 240);
+      });
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+          closeChecklist();
+          return;
+        }
+        if (checklistModal.classList.contains('hidden')) return;
+        if (e.target && /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)) return;
+        if (e.key === 'ArrowLeft') { e.preventDefault(); moveExercise(-1); }
+        if (e.key === 'ArrowRight') { e.preventDefault(); moveExercise(1); }
+      });
+
+      // Entrenamiento guiado
+      document.getElementById('guidedCloseBtn').addEventListener('click', () => closeGuidedWorkout());
+      document.getElementById('guidedDoneCloseBtn').addEventListener('click', () => closeGuidedWorkout(true));
+      document.getElementById('guidedCompleteSetBtn').addEventListener('click', completeGuidedSet);
+      document.getElementById('guidedSkipRestBtn').addEventListener('click', skipGuidedRest);
+      document.getElementById('guidedAddRestBtn').addEventListener('click', addGuidedRest);
+      document.getElementById('guidedViewHistoryBtn').addEventListener('click', () => {
+        const name = guided.routine ? guided.routine.name : 'Rutina';
+        closeGuidedWorkout(true);
+        showView('routines');
+        focusLatestCompletedRoutine();
+        showToast(`🎯 ${name} guardada en tu historial.`);
+      });
+      const guidedGifImg = document.getElementById('guidedGif');
+      guidedGifImg.addEventListener('load', () => {
+        if (!guided.active) return;
+        document.getElementById('guidedGifLoading').classList.add('hidden');
+        document.getElementById('guidedGifFallback').classList.add('hidden');
+        guidedGifImg.classList.remove('opacity-0');
+      });
+      guidedGifImg.addEventListener('error', () => {
+        if (!guided.active) return;
+        document.getElementById('guidedGifLoading').classList.add('hidden');
+        guidedGifImg.classList.add('opacity-0');
+        document.getElementById('guidedGifFallback').classList.remove('hidden');
+      });
+      document.addEventListener('keydown', (e) => {
+        if (!guided.active) return;
+        if (e.key === 'Escape') { e.preventDefault(); closeGuidedWorkout(); }
+      });
+
+      // HIIT / Tabata
+      document.querySelectorAll('[data-mode]').forEach((b) => b.addEventListener('click', () => setTrainingMode(b.dataset.mode)));
+      document.getElementById('hiitPresetGrid').addEventListener('click', (e) => {
+        const btn = e.target.closest('[data-hiit]');
+        if (btn) openHiitWorkout(HIIT_PRESETS.find((p) => p.id === btn.dataset.hiit));
+      });
+      document.getElementById('hiitCustomForm').addEventListener('input', updateHiitCustomSummary);
+      document.getElementById('hiitCustomForm').addEventListener('submit', (e) => {
+        e.preventDefault();
+        const plan = readHiitCustomPlan();
+        document.getElementById('hiitWorkInput').value = plan.work;
+        document.getElementById('hiitRestInput').value = plan.rest;
+        document.getElementById('hiitRoundsInput').value = plan.rounds;
+        updateHiitCustomSummary();
+        openHiitWorkout(plan);
+      });
+      document.getElementById('hiitPauseBtn').addEventListener('click', toggleHiitPause);
+      document.getElementById('hiitSkipBtn').addEventListener('click', skipHiitPhase);
+      document.getElementById('hiitCloseBtn').addEventListener('click', () => closeHiitWorkout());
+      document.getElementById('hiitDoneCloseBtn').addEventListener('click', () => closeHiitWorkout(true));
+      document.getElementById('hiitRepeatBtn').addEventListener('click', () => openHiitWorkout(hiit.plan));
+      document.getElementById('hiitViewHistoryBtn').addEventListener('click', () => {
+        closeHiitWorkout(true);
+        showView('history');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      });
+      document.addEventListener('keydown', (e) => {
+        if (!hiit.active) return;
+        if (e.key === 'Escape') { e.preventDefault(); closeHiitWorkout(); return; }
+        if ((e.key === ' ' || e.code === 'Space') && !hiit.finished && !(e.target && /^(BUTTON|INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName))) {
+          e.preventDefault();
+          toggleHiitPause();
+        }
+      });
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible' && hiit.active && !hiit.finished) { requestHiitWakeLock(); hiitTick(); }
+      });
+
+      // Yoga / Movilidad y CrossFit / WOD
+      document.getElementById('yogaHoldPicker').addEventListener('click', (e) => {
+        const btn = e.target.closest('[data-yoga-hold]');
+        if (!btn) return;
+        yogaHold = parseInt(btn.dataset.yogaHold, 10) || 0;
+        renderYogaPresets();
+      });
+      document.getElementById('yogaPresetGrid').addEventListener('click', (e) => {
+        const btn = e.target.closest('[data-yoga]');
+        if (btn) openFlowWorkout(buildYogaPlan(YOGA_PRESETS.find((p) => p.id === btn.dataset.yoga)));
+      });
+      ['amrapGrid', 'emomGrid'].forEach((id) => document.getElementById(id).addEventListener('click', (e) => {
+        const minBtn = e.target.closest('[data-wod-min]');
+        if (minBtn) {
+          wodMinutes[minBtn.dataset.wodId] = parseInt(minBtn.dataset.wodMin, 10);
+          renderWodPresets();
+          return;
+        }
+        const btn = e.target.closest('[data-wod]');
+        if (btn) openFlowWorkout(buildWodPlan(WOD_PRESETS.find((p) => p.id === btn.dataset.wod)));
+      }));
+      document.getElementById('flowAmrapList').addEventListener('click', (e) => {
+        const btn = e.target.closest('[data-amrap-item]');
+        if (btn) toggleAmrapItem(parseInt(btn.dataset.amrapItem, 10));
+      });
+      document.getElementById('flowRoundPlus').addEventListener('click', addAmrapRound);
+      document.getElementById('flowRoundMinus').addEventListener('click', undoAmrap);
+      document.getElementById('flowPauseBtn').addEventListener('click', toggleFlowPause);
+      document.getElementById('flowSkipBtn').addEventListener('click', skipFlowStep);
+      document.getElementById('flowCloseBtn').addEventListener('click', () => closeFlowWorkout());
+      document.getElementById('flowDoneCloseBtn').addEventListener('click', () => closeFlowWorkout(true));
+      document.getElementById('flowRepeatBtn').addEventListener('click', () => openFlowWorkout(flow.plan));
+      document.getElementById('flowViewHistoryBtn').addEventListener('click', () => {
+        closeFlowWorkout(true);
+        showView('history');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      });
+      document.addEventListener('keydown', (e) => {
+        if (!flow.active) return;
+        if (e.key === 'Escape') { e.preventDefault(); closeFlowWorkout(); return; }
+        if ((e.key === ' ' || e.code === 'Space') && !flow.finished && !(e.target && /^(BUTTON|INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName))) {
+          e.preventDefault();
+          toggleFlowPause();
+        }
+      });
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible' && flow.active && !flow.finished) { requestFlowWakeLock(); flowTick(); }
+      });
+
+      // Temporizador de descanso
+      document.getElementById('restPreset30').addEventListener('click', () => setRestSeconds(30));
+      document.getElementById('restPreset60').addEventListener('click', () => setRestSeconds(60));
+      document.getElementById('restPreset90').addEventListener('click', () => setRestSeconds(90));
+      document.getElementById('restStartBtn').addEventListener('click', toggleRest);
+      document.getElementById('restResetBtn').addEventListener('click', resetRest);
+
+      // Historial de rutinas: galería de GIFs por tarjeta (Panel, Rutinas e Historial)
+      ['routineHistoryList', 'completedRoutinesList', 'historyRoutineList'].forEach((id) => {
+        const container = document.getElementById(id);
+        if (!container) return;
+        container.addEventListener('click', (e) => {
+          const pill = e.target.closest('[data-history-exercise]');
+          if (!pill) return;
+          const card = pill.closest('[data-history-card]');
+          if (!card) return;
+          const img = card.querySelector('[data-history-gif]');
+          const detail = card.querySelector('[data-history-detail]');
+          if (img && pill.dataset.gif) {
+            img.src = pill.dataset.gif;
+            img.alt = 'Demostración de ' + pill.textContent.trim();
+          }
+          if (detail && pill.dataset.label) detail.textContent = pill.dataset.label;
+          card.querySelectorAll('[data-history-exercise]').forEach((b) => {
+            const active = b === pill;
+            b.classList.toggle('bg-duck', active);
+            b.classList.toggle('text-ink', active);
+            b.classList.toggle('bg-slate800', !active);
+            b.classList.toggle('text-slate-300', !active);
+            b.setAttribute('aria-pressed', active ? 'true' : 'false');
+          });
+        });
+      });
+
+      // Historial
+      document.getElementById('clearHistoryBtn').addEventListener('click', clearRoutineHistory);
+
+      // Inicio
+      if (currentUser) { enterApp(); } else { setAuthMode('login'); }
+    });
+  </script>
+</body>
+</html>
+
