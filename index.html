@@ -575,11 +575,11 @@
               <div class="flex items-start justify-between gap-3">
                 <div>
                   <h3 class="font-extrabold text-white text-lg">📚 Clases creadas</h3>
-                  <p class="text-[11px] text-slate-500 font-medium mt-0.5">Código, estudiantes vinculados y acceso rápido.</p>
+                  <p class="text-[11px] text-slate-500 font-medium mt-0.5">Las clases de classes.json se comparten; las nuevas quedan en este dispositivo.</p>
                 </div>
-                <button id="teacherSyncBtn" type="button" class="shrink-0 px-3 py-2 rounded-xl bg-slate800 text-violet-300 text-[11px] font-extrabold hover:bg-[#334155] transition-colors">☁️ Sincronizar</button>
+                <button id="teacherSyncBtn" type="button" class="shrink-0 px-3 py-2 rounded-xl bg-slate800 text-violet-300 text-[11px] font-extrabold hover:bg-[#334155] transition-colors">🔄 Actualizar catálogo</button>
               </div>
-              <p id="classServerStatus" class="mt-2 text-[11px] font-semibold text-slate-500">Las clases se comparten mediante este servidor.</p>
+              <p id="classServerStatus" class="mt-2 text-[11px] font-semibold text-slate-500">El catálogo de clases se carga desde classes.json.</p>
               <div id="teacherClassesList" class="mt-4 space-y-3"></div>
             </div>
           </div>
@@ -614,7 +614,7 @@
         <button id="joinClassCloseBtn" type="button" aria-label="Cerrar" class="text-slate-400 hover:text-white text-2xl leading-none px-1">✕</button>
       </div>
       <p class="text-sm text-slate-400 font-medium mt-2">Introduce el código que te compartió tu profesor. La clase aparecerá automáticamente en tu catálogo.</p>
-      <p class="text-[11px] text-slate-500 font-semibold mt-1.5">💡 Abre DuckGym desde la misma dirección de servidor que tu profesor (por ejemplo, su IP o dominio de XAMPP).</p>
+      <p class="text-[11px] text-slate-500 font-semibold mt-1.5">💡 El catálogo se carga desde <span class="font-extrabold text-slate-400">classes.json</span>. Puedes escribir el código con o sin guion.</p>
       <label class="block mt-4">
         <span class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Código de clase</span>
         <input id="joinClassCode" type="text" maxlength="12" autocomplete="off" spellcheck="false" placeholder="DUCK-8492" class="mt-1 w-full bg-ink border border-slate800 rounded-xl px-4 py-3 text-center text-2xl font-extrabold tracking-[0.12em] text-violet-300 uppercase placeholder-slate-600 focus:outline-none focus:border-violet-400" />
@@ -1256,10 +1256,10 @@
     let classSavedClass = null;
     let pendingJoinCode = '';
     let classSaving = false;
-    let classApiBase = null;
     let classSyncAt = 0;
     let classSyncInFlight = null;
     let classSyncState = 'idle';
+    let classCatalogCache = {};
     let selectedRoutine = null;
     let currentExerciseIdx = 0;
     let routineSessionStart = 0;
@@ -1770,89 +1770,197 @@
     // ============ GESTIÓN DE CLASES Y VINCULACIÓN POR CÓDIGO ============
     const CLASS_STORAGE_KEY = 'duckgym_classes';
     const CLASS_CODE_RE = /^DUCK-[A-Z0-9]{4}$/;
+    const CLASS_CATALOG_URL = 'classes.json';
+    const STUDENT_CLASSES_KEY = 'DUCKGYM_STUDENT_CLASSES';
+    const CLASS_DELETED_KEY = 'duckgym_deleted_classes';
     const getClassStore = () => readJSON(CLASS_STORAGE_KEY, {});
     const saveClassStore = (store) => localStorage.setItem(CLASS_STORAGE_KEY, JSON.stringify(store));
     const getCurrentRole = () => (getUserData().role === 'teacher' ? 'teacher' : 'student');
     const classRoutineId = (code) => 'class-' + normalizeClassCode(code).toLowerCase();
 
-    // Servidor compartido de clases: permite que el código funcione en otros dispositivos.
-    const CLASS_API_CANDIDATES = (() => {
-      const list = ['./api/classes.php'];
-      try {
-        const current = new URL(window.location.href);
-        if (current.protocol === 'file:') {
-          const parts = current.pathname.split('/').filter(Boolean);
-          const folders = new Set(['DuckGym-main']);
-          if (parts.length >= 2) folders.add(parts[parts.length - 2]);
-          folders.forEach((folder) => {
-            if (!folder) return;
-            list.push('http://localhost/' + encodeURIComponent(folder) + '/api/classes.php');
-            list.push('http://127.0.0.1/' + encodeURIComponent(folder) + '/api/classes.php');
-          });
-        } else {
-          const segments = current.pathname.split('/').filter(Boolean);
-          const folder = segments.length >= 2 ? segments[0] : '';
-          if (folder && !/\.html?$/i.test(folder)) {
-            list.push(current.origin + '/' + encodeURIComponent(folder) + '/api/classes.php');
-          }
-          if (current.hostname === 'localhost' || current.hostname === '127.0.0.1') {
-            list.push('http://localhost/DuckGym-main/api/classes.php');
-          }
-        }
-      } catch (error) { /* URL no disponible */ }
-      return [...new Set(list)];
-    })();
+    // El catálogo oficial vive en classes.json (Render sirve este archivo estático).
+    // El navegador lo copia a localStorage para poder entrenar también sin conexión.
+    function getDeletedClassCodes() {
+      const raw = readJSON(CLASS_DELETED_KEY, []);
+      if (!Array.isArray(raw)) return [];
+      return [...new Set(raw.map(normalizeClassCode).filter(isValidClassCode))];
+    }
 
-    async function classApiRequest(params = {}, options = {}) {
-      const candidates = classApiBase ? [classApiBase] : CLASS_API_CANDIDATES;
-      let lastError = null;
-      for (const base of candidates) {
-        const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
-        const timer = controller ? setTimeout(() => controller.abort(), 5000) : null;
-        try {
-          const url = new URL(base, window.location.href);
-          Object.entries(params || {}).forEach(([key, value]) => {
-            if (value !== undefined && value !== null && value !== '') url.searchParams.set(key, String(value));
-          });
-          const requestOptions = { cache: 'no-store', method: options.method || 'GET' };
-          if (options.body !== undefined) requestOptions.body = options.body;
-          requestOptions.headers = {
-            Accept: 'application/json',
-            ...(options.body !== undefined ? { 'Content-Type': 'application/json' } : {}),
-            ...(options.headers || {}),
-          };
-          if (controller) requestOptions.signal = controller.signal;
-
-          const response = await fetch(url.toString(), requestOptions);
-          const text = await response.text();
-          let data = null;
-          try { data = text ? JSON.parse(text) : null; } catch (parseError) { /* respuesta no JSON */ }
-
-          if (data && typeof data.ok === 'boolean') {
-            classApiBase = base;
-            if (!response.ok || data.ok === false) {
-              const apiError = new Error(data.message || data.error || 'Error del servidor de clases.');
-              apiError.code = data.error || 'api_error';
-              apiError.status = response.status;
-              throw apiError;
-            }
-            return data;
-          }
-
-          lastError = new Error('El servidor de clases no devolvió una respuesta válida.');
-          lastError.code = 'api_unavailable';
-        } catch (error) {
-          if (error && error.code && error.code !== 'api_unavailable') throw error;
-          lastError = error;
-        } finally {
-          if (timer) clearTimeout(timer);
-        }
+    function addDeletedClassCode(code) {
+      const normalized = normalizeClassCode(code);
+      if (!isValidClassCode(normalized)) return;
+      const codes = getDeletedClassCodes();
+      if (!codes.includes(normalized)) {
+        codes.push(normalized);
+        localStorage.setItem(CLASS_DELETED_KEY, JSON.stringify(codes));
       }
-      const unavailable = new Error('No se pudo conectar con el servidor de clases.');
-      unavailable.code = 'api_unavailable';
-      unavailable.status = 0;
-      unavailable.cause = lastError;
-      throw unavailable;
+    }
+
+    function removeDeletedClassCode(code) {
+      const normalized = normalizeClassCode(code);
+      const codes = getDeletedClassCodes().filter((item) => item !== normalized);
+      localStorage.setItem(CLASS_DELETED_KEY, JSON.stringify(codes));
+    }
+
+    function studentClassCodeOf(entry) {
+      if (typeof entry === 'string') return normalizeClassCode(entry);
+      return normalizeClassCode(entry && entry.code);
+    }
+
+    function getStudentClassMirror() {
+      const raw = readJSON(STUDENT_CLASSES_KEY, []);
+      if (Array.isArray(raw)) return raw;
+      if (raw && typeof raw === 'object') return Object.values(raw);
+      return [];
+    }
+
+    function saveStudentClassMirror(cls) {
+      if (!cls || !isValidClassCode(cls.code)) return;
+      const code = normalizeClassCode(cls.code);
+      const isCatalogClass = cls._source === 'catalog' || cls._synced === true;
+      const list = getStudentClassMirror().filter((entry) => studentClassCodeOf(entry) !== code);
+      list.push({
+        ...cls,
+        code,
+        _synced: isCatalogClass,
+        _source: isCatalogClass ? 'catalog' : 'local',
+        joinedAt: new Date().toISOString(),
+      });
+      localStorage.setItem(STUDENT_CLASSES_KEY, JSON.stringify(list));
+    }
+
+    function removeStudentClassMirror(code) {
+      const normalized = normalizeClassCode(code);
+      const list = getStudentClassMirror().filter((entry) => studentClassCodeOf(entry) !== normalized);
+      localStorage.setItem(STUDENT_CLASSES_KEY, JSON.stringify(list));
+    }
+
+    function normalizeCatalogClass(raw) {
+      if (!raw || typeof raw !== 'object') return null;
+      const code = normalizeClassCode(raw.code || raw.id || '');
+      if (!isValidClassCode(code)) return null;
+      const rawExercises = Array.isArray(raw.exercises) ? raw.exercises : [];
+      const exercises = rawExercises
+        .filter((exercise) => exercise && typeof exercise === 'object' && String(exercise.name || '').trim())
+        .map((exercise) => ({
+          name: String(exercise.name).trim(),
+          detail: String(exercise.detail || 'A tu ritmo'),
+          gif: String(exercise.gif || ''),
+          desc: String(exercise.desc || ''),
+          ...(Number(exercise.durationSec) > 0 ? { durationSec: Number(exercise.durationSec) } : {}),
+          ...(Number(exercise.distanceKm) > 0 ? { distanceKm: Number(exercise.distanceKm) } : {}),
+          ...(exercise.targetPace ? { targetPace: String(exercise.targetPace) } : {}),
+          ...(exercise.phase ? { phase: String(exercise.phase) } : {}),
+          ...(exercise.sourceCategory ? { sourceCategory: String(exercise.sourceCategory) } : {}),
+          ...(exercise.sourceName ? { sourceName: String(exercise.sourceName) } : {}),
+        }));
+      if (!exercises.length) return null;
+      const teacher = String(raw.teacher || 'profesor').trim() || 'profesor';
+      return {
+        ...raw,
+        code,
+        id: classRoutineId(code),
+        teacher,
+        teacherName: String(raw.teacherName || teacher).trim() || teacher,
+        name: String(raw.name || `Clase ${code}`).trim() || `Clase ${code}`,
+        description: String(raw.description || ''),
+        level: String(raw.level || 'Todos los niveles'),
+        emoji: String(raw.emoji || '🎓'),
+        minutes: Math.max(1, Number(raw.minutes) || estimateClassMinutes(exercises)),
+        createdAt: String(raw.createdAt || new Date().toISOString()),
+        enrollmentCount: Math.max(0, Number(raw.enrollmentCount) || 0),
+        exercises,
+        _synced: true,
+        _source: 'catalog',
+      };
+    }
+
+    function normalizeCatalogData(data) {
+      let rawList = [];
+      if (Array.isArray(data)) rawList = data;
+      else if (data && Array.isArray(data.classes)) rawList = data.classes;
+      else if (data && typeof data === 'object') rawList = Object.values(data);
+      const catalog = {};
+      rawList.forEach((raw) => {
+        const cls = normalizeCatalogClass(raw);
+        if (cls) catalog[cls.code] = cls;
+      });
+      return catalog;
+    }
+
+    async function fetchClassCatalog() {
+      const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+      const timer = controller ? setTimeout(() => controller.abort(), 7000) : null;
+      try {
+        const response = await fetch(`${CLASS_CATALOG_URL}?v=${Date.now()}`, {
+          cache: 'no-store',
+          headers: { Accept: 'application/json' },
+          ...(controller ? { signal: controller.signal } : {}),
+        });
+        if (!response.ok) {
+          throw new Error(`classes.json respondió con HTTP ${response.status}.`);
+        }
+        const data = await response.json();
+        const catalog = normalizeCatalogData(data);
+        if (!Object.keys(catalog).length) {
+          throw new Error('classes.json no contiene clases válidas.');
+        }
+        return catalog;
+      } finally {
+        if (timer) clearTimeout(timer);
+      }
+    }
+
+    function mergeClassCatalog(catalog) {
+      if (!catalog || typeof catalog !== 'object') return;
+      const store = getClassStore();
+      const deleted = new Set(getDeletedClassCodes());
+      Object.entries(catalog).forEach(([code, cls]) => {
+        if (!cls || deleted.has(code)) return;
+        store[code] = {
+          ...(store[code] || {}),
+          ...cls,
+          _synced: true,
+          _source: 'catalog',
+        };
+      });
+      saveClassStore(store);
+    }
+
+    function refreshStudentClassMirror(catalog) {
+      const store = getClassStore();
+      const current = getStudentClassMirror();
+      const byCode = new Map(current.map((entry) => [studentClassCodeOf(entry), entry]));
+      let changed = false;
+      getAssignedClassCodes().forEach((code) => {
+        const cls = (catalog && catalog[code]) || store[code];
+        if (!cls) return;
+        const previous = byCode.get(code) || {};
+        byCode.set(code, {
+          ...previous,
+          ...cls,
+          code,
+          _synced: true,
+          _source: 'catalog',
+        });
+        changed = true;
+      });
+      if (changed) {
+        localStorage.setItem(STUDENT_CLASSES_KEY, JSON.stringify([...byCode.values()]));
+      }
+    }
+
+    async function syncClassesFromCatalog() {
+      try {
+        const catalog = await fetchClassCatalog();
+        classCatalogCache = catalog;
+        mergeClassCatalog(catalog);
+        refreshStudentClassMirror(catalog);
+        return true;
+      } catch (error) {
+        console.warn('DuckGym: no se pudo cargar classes.json; se usan las clases locales.', error);
+        return false;
+      }
     }
 
     function saveClassRecord(cls, extra = {}) {
@@ -1863,133 +1971,34 @@
       return store[cls.code];
     }
 
-    function replaceAssignedClassCode(oldCode, newCode) {
-      if (!oldCode || !newCode || oldCode === newCode) return;
+    function removeAssignedClassLocal(code) {
+      const normalized = normalizeClassCode(code);
       const users = getUsers();
       let changed = false;
       Object.values(users).forEach((user) => {
-        if (Array.isArray(user.assignedClasses) && user.assignedClasses.includes(oldCode)) {
-          user.assignedClasses = [...new Set(user.assignedClasses.map((code) => (code === oldCode ? newCode : code)))];
+        if (Array.isArray(user.assignedClasses) && user.assignedClasses.includes(normalized)) {
+          user.assignedClasses = user.assignedClasses.filter((item) => normalizeClassCode(item) !== normalized);
           changed = true;
         }
       });
       if (changed) saveUsers(users);
-    }
-
-    async function syncTeacherClassesWithServer() {
-      if (!currentUser || getCurrentRole() !== 'teacher') return false;
-      let serverClasses = [];
-      try {
-        const result = await classApiRequest({ teacher: currentUser });
-        serverClasses = Array.isArray(result.classes) ? result.classes : [];
-      } catch (error) {
-        if (error.code === 'api_unavailable') return false;
-        throw error;
-      }
-      if (!currentUser || getCurrentRole() !== 'teacher') return false;
-
-      const store = getClassStore();
-      const serverCodes = new Set();
-      serverClasses.forEach((cls) => {
-        if (!cls || !isValidClassCode(cls.code)) return;
-        serverCodes.add(cls.code);
-        store[cls.code] = { ...(store[cls.code] || {}), ...cls, _synced: true };
-      });
-
-      const localClasses = Object.values(store).filter((cls) => cls && cls.teacher === currentUser);
-      let reachable = true;
-      for (const cls of [...localClasses]) {
-        if (serverCodes.has(cls.code)) continue;
-        if (cls._synced === true) {
-          delete store[cls.code];
-          continue;
-        }
-        try {
-          const result = await classApiRequest({}, {
-            method: 'POST',
-            body: JSON.stringify({ action: 'create', class: cls }),
-          });
-          if (!currentUser) return false;
-          const saved = result.class;
-          if (!saved || !isValidClassCode(saved.code)) continue;
-          if (saved.code !== cls.code) {
-            delete store[cls.code];
-            replaceAssignedClassCode(cls.code, saved.code);
-          }
-          store[saved.code] = { ...saved, _synced: true };
-          serverCodes.add(saved.code);
-        } catch (error) {
-          if (error.code === 'api_unavailable') {
-            reachable = false;
-            break;
-          }
-          console.warn('DuckGym: no se pudo sincronizar una clase local.', error);
-        }
-      }
-      saveClassStore(store);
-      return reachable;
-    }
-
-    async function syncStudentClassesWithServer() {
-      if (!currentUser || getCurrentRole() !== 'student') return false;
-      const assigned = getAssignedClassCodes();
-      if (!assigned.length) return true;
-
-      const store = getClassStore();
-      const removed = [];
-      let changed = false;
-      let reachable = true;
-      for (const code of assigned) {
-        try {
-          const result = await classApiRequest({ code });
-          if (!currentUser) return false;
-          if (result.class && isValidClassCode(result.class.code)) {
-            store[result.class.code] = { ...(store[result.class.code] || {}), ...result.class, _synced: true };
-            changed = true;
-          }
-        } catch (error) {
-          if (error.code === 'class_not_found') {
-            const localClass = store[code];
-            if (!localClass || localClass._synced === true) {
-              delete store[code];
-              removed.push(code);
-              changed = true;
-            }
-          } else if (error.code === 'api_unavailable') {
-            reachable = false;
-            break;
-          } else {
-            console.warn('DuckGym: no se pudo sincronizar una clase asignada.', error);
-          }
-        }
-      }
-      if (changed) saveClassStore(store);
-      if (removed.length) {
-        const remaining = getAssignedClassCodes().filter((code) => !removed.includes(code));
-        saveUserData({ assignedClasses: remaining });
-      }
-      return reachable;
+      removeStudentClassMirror(normalized);
     }
 
     function ensureClassSync(force = false) {
-      if (!currentUser) return Promise.resolve();
-      if (!force && classSyncInFlight) return classSyncInFlight;
-      if (!force && classSyncAt && Date.now() - classSyncAt < 30000) return Promise.resolve();
+      if (classSyncInFlight) return classSyncInFlight;
+      if (!force && classSyncAt && Date.now() - classSyncAt < 30000) return Promise.resolve(classSyncState === 'online');
 
       classSyncState = 'checking';
       updateClassServerStatus();
 
       const syncPromise = (async () => {
+        let reachable = false;
         try {
-          const reachable = getCurrentRole() === 'teacher'
-            ? await syncTeacherClassesWithServer()
-            : await syncStudentClassesWithServer();
-          classSyncState = reachable === false ? 'offline' : 'online';
-          if (currentUser) classSyncAt = Date.now();
-        } catch (error) {
-          classSyncState = 'offline';
-          console.warn('DuckGym: no se pudieron sincronizar las clases.', error);
+          reachable = await syncClassesFromCatalog();
         } finally {
+          classSyncState = reachable ? 'online' : 'offline';
+          classSyncAt = Date.now();
           classSyncInFlight = null;
           if (currentUser) {
             syncClassRoutines();
@@ -1997,11 +2006,13 @@
             if (getCurrentRole() === 'teacher' && classesView && !classesView.classList.contains('hidden')) {
               renderClassManager();
             }
+            renderAssignedClasses();
             const routinesView = document.getElementById('view-routines');
             if (routinesView && !routinesView.classList.contains('hidden')) renderRoutines();
           }
           updateClassServerStatus();
         }
+        return reachable;
       })();
       classSyncInFlight = syncPromise;
       return syncPromise;
@@ -2010,18 +2021,19 @@
     function updateClassServerStatus() {
       const statusEl = document.getElementById('classServerStatus');
       if (!statusEl) return;
+      const catalogCount = Object.keys(classCatalogCache).length;
       if (classSyncState === 'checking') {
         statusEl.className = 'mt-2 text-[11px] font-semibold text-slate-400';
-        statusEl.textContent = '⏳ Comprobando el servidor de clases…';
+        statusEl.textContent = '⏳ Cargando el catálogo classes.json…';
       } else if (classSyncState === 'online') {
         statusEl.className = 'mt-2 text-[11px] font-semibold text-emerald-400';
-        statusEl.textContent = '☁️ Servidor conectado: los códigos funcionan en otros dispositivos.';
+        statusEl.textContent = `☁️ classes.json cargado: ${catalogCount} ${catalogCount === 1 ? 'clase disponible' : 'clases disponibles'}.`;
       } else if (classSyncState === 'offline') {
         statusEl.className = 'mt-2 text-[11px] font-semibold text-amber-400';
-        statusEl.textContent = '⚠️ Sin conexión al servidor de clases. Revisa que Apache/PHP estén activos y pulsa Sincronizar.';
+        statusEl.textContent = '⚠️ No se pudo cargar classes.json. Se usan las clases guardadas en este dispositivo.';
       } else {
         statusEl.className = 'mt-2 text-[11px] font-semibold text-slate-500';
-        statusEl.textContent = 'Las clases se comparten mediante este servidor.';
+        statusEl.textContent = 'El catálogo de clases se carga desde classes.json.';
       }
     }
 
@@ -2037,12 +2049,14 @@
 
     function getAssignedClassCodes() {
       const assigned = getUserData().assignedClasses;
-      if (!Array.isArray(assigned)) return [];
-      return [...new Set(assigned.map(normalizeClassCode).filter(isValidClassCode))];
+      const fromUser = Array.isArray(assigned) ? assigned : [];
+      const fromMirror = getStudentClassMirror().map(studentClassCodeOf);
+      return [...new Set([...fromUser.map(normalizeClassCode), ...fromMirror].filter(isValidClassCode))];
     }
 
     function generateClassCode() {
       const store = getClassStore();
+      const deleted = new Set(getDeletedClassCodes());
       const randomInt = (max) => {
         if (window.crypto && window.crypto.getRandomValues) {
           const buffer = new Uint32Array(1);
@@ -2053,7 +2067,7 @@
       };
       for (let i = 0; i < 200; i += 1) {
         const code = 'DUCK-' + String(randomInt(9000) + 1000);
-        if (!store[code]) return code;
+        if (!store[code] && !deleted.has(code)) return code;
       }
       throw new Error('No se pudo generar un código único. Inténtalo de nuevo.');
     }
@@ -2324,9 +2338,10 @@
       listEl.innerHTML = classes.map((cls) => {
         const routineId = classRoutineId(cls.code);
         const enrolled = Math.max(Number(cls.enrollmentCount) || 0, classEnrollmentCount(cls.code));
-        const syncBadge = cls._synced === true
-          ? ' · <span class="text-emerald-400" title="Disponible en el servidor para cualquier dispositivo">☁️ Compartida</span>'
-          : (cls._synced === false ? ' · <span class="text-amber-400" title="Solo existe en este navegador">⚠️ Solo local</span>' : '');
+        const isCatalogClass = cls._source === 'catalog' || cls._synced === true;
+        const syncBadge = isCatalogClass
+          ? ' · <span class="text-emerald-400" title="Disponible en classes.json para cualquier dispositivo">☁️ En classes.json</span>'
+          : ' · <span class="text-amber-400" title="Guardada solo en este navegador">💾 Solo este dispositivo</span>';
         return `
           <article class="rounded-xl border border-slate800 bg-ink/50 p-3">
             <div class="flex items-start justify-between gap-2">
@@ -2411,16 +2426,15 @@
       if (checklistBtn) checklistBtn.dataset.checklist = classRoutineId(cls.code);
       const syncNote = document.getElementById('classSavedSyncNote');
       if (syncNote) {
-        if (cls._synced === false) {
-          syncNote.className = 'mt-3 rounded-xl border border-amber-400/30 bg-amber-400/10 px-3 py-2 text-[11px] font-semibold text-amber-300';
-          syncNote.textContent = '⚠️ Guardada solo en este navegador. Para que el código funcione en otros dispositivos, abre DuckGym desde XAMPP (por ejemplo, http://localhost/DuckGym-main/).';
-          syncNote.classList.remove('hidden');
-        } else if (cls._synced === true) {
+        const isCatalogClass = cls._source === 'catalog' || cls._synced === true;
+        if (isCatalogClass) {
           syncNote.className = 'mt-3 rounded-xl border border-emerald-400/30 bg-emerald-400/10 px-3 py-2 text-[11px] font-semibold text-emerald-300';
-          syncNote.textContent = '☁️ Clase compartida: el código ya puede usarse desde otros dispositivos conectados a este servidor.';
+          syncNote.textContent = '☁️ Clase incluida en classes.json: el código funciona en cualquier dispositivo.';
           syncNote.classList.remove('hidden');
         } else {
-          syncNote.classList.add('hidden');
+          syncNote.className = 'mt-3 rounded-xl border border-amber-400/30 bg-amber-400/10 px-3 py-2 text-[11px] font-semibold text-amber-300';
+          syncNote.textContent = '💾 Guardada en este dispositivo. Para publicarla en Render, añade su JSON a classes.json y vuelve a desplegar.';
+          syncNote.classList.remove('hidden');
         }
       }
       panel.classList.remove('hidden');
@@ -2488,7 +2502,10 @@
         const { uid, ...data } = block;
         return { ...data };
       });
-      const baseClass = {
+      const code = generateClassCode();
+      const cls = {
+        code,
+        id: classRoutineId(code),
         teacher: currentUser,
         teacherName: getUserData().name || currentUser,
         name,
@@ -2497,36 +2514,18 @@
         emoji: '🎓',
         minutes: estimateClassMinutes(exercises),
         createdAt: new Date().toISOString(),
+        enrollmentCount: 0,
         exercises,
+        _synced: false,
+        _source: 'local',
       };
 
       classSaving = true;
       renderClassDraft();
-      let cls = null;
-      let synced = false;
       try {
-        try {
-          const result = await classApiRequest({}, {
-            method: 'POST',
-            body: JSON.stringify({ action: 'create', class: baseClass }),
-          });
-          if (!result.class || !isValidClassCode(result.class.code)) {
-            throw new Error('El servidor no devolvió la clase creada.');
-          }
-          cls = { ...result.class, _synced: true };
-          synced = true;
-        } catch (error) {
-          if (error.code !== 'api_unavailable') {
-            errorEl.textContent = error.message || 'No se pudo crear la clase en el servidor.';
-            errorEl.classList.remove('hidden');
-            return;
-          }
-          const code = generateClassCode();
-          cls = { ...baseClass, code, id: classRoutineId(code), _synced: false };
-        }
         if (!currentUser) return;
-
-        saveClassRecord(cls, { _synced: synced });
+        removeDeletedClassCode(code);
+        saveClassRecord(cls, { _synced: false, _source: 'local' });
         classDraft = [];
         document.getElementById('classFormName').value = '';
         document.getElementById('classFormDescription').value = '';
@@ -2537,9 +2536,7 @@
         renderTeacherClasses();
         renderAssignedClasses();
         showClassSaved(cls);
-        showToast(synced
-          ? `🎓 Clase creada y compartida · Código ${cls.code}`
-          : `🎓 Clase creada · Código ${cls.code} (solo local)`);
+        showToast(`🎓 Clase creada · Código ${code} (guardada en este dispositivo)`);
       } finally {
         classSaving = false;
         renderClassDraft();
@@ -2551,41 +2548,12 @@
       const store = getClassStore();
       const cls = store[normalized];
       if (!cls || cls.teacher !== currentUser) return;
-      if (!window.confirm(`¿Eliminar la clase "${cls.name}"? Los estudiantes dejarán de verla.`)) return;
-
-      if (cls._synced !== false) {
-        try {
-          await classApiRequest({}, {
-            method: 'POST',
-            body: JSON.stringify({ action: 'delete', code: normalized, teacher: currentUser }),
-          });
-        } catch (error) {
-          if (error.code === 'class_not_found') {
-            /* ya no estaba en el servidor */
-          } else if (error.code === 'api_unavailable') {
-            showToast('No se pudo contactar con el servidor. La clase sigue compartida.');
-            return;
-          } else if (error.code === 'not_owner') {
-            showToast('Solo el profesor que creó la clase puede eliminarla.');
-            return;
-          } else {
-            showToast(error.message || 'No se pudo eliminar la clase del servidor.');
-            return;
-          }
-        }
-      }
+      if (!window.confirm(`¿Eliminar la clase "${cls.name}" de este dispositivo?`)) return;
 
       delete store[normalized];
       saveClassStore(store);
-      const users = getUsers();
-      let changed = false;
-      Object.values(users).forEach((user) => {
-        if (Array.isArray(user.assignedClasses) && user.assignedClasses.includes(normalized)) {
-          user.assignedClasses = user.assignedClasses.filter((item) => item !== normalized);
-          changed = true;
-        }
-      });
-      if (changed) saveUsers(users);
+      addDeletedClassCode(normalized);
+      removeAssignedClassLocal(normalized);
       if (classSavedClass && classSavedClass.code === normalized) {
         classSavedClass = null;
         document.getElementById('classSavedPanel').classList.add('hidden');
@@ -2593,7 +2561,7 @@
       syncClassRoutines();
       renderTeacherClasses();
       renderAssignedClasses();
-      showToast('Clase eliminada');
+      showToast('Clase eliminada de este dispositivo');
     }
 
     async function joinClassByCode(rawCode) {
@@ -2601,41 +2569,44 @@
       if (!isValidClassCode(code)) throw new Error('El código debe tener el formato DUCK-XXXX.');
       if (!currentUser) throw new Error('Inicia sesión para vincularte a una clase.');
 
-      const studentName = getUserData().name || currentUser;
       let cls = getClassStore()[code] || null;
-      let offline = false;
+      let source = cls ? (cls._source === 'catalog' || cls._synced === true ? 'catalog' : 'local') : '';
 
-      try {
-        const result = await classApiRequest({}, {
-          method: 'POST',
-          body: JSON.stringify({ action: 'join', code, student: currentUser, studentName }),
-        });
-        if (result.class && isValidClassCode(result.class.code)) {
-          cls = result.class;
-          saveClassRecord(cls, { _synced: true });
-        }
-      } catch (error) {
-        if (error.code === 'api_unavailable') {
-          offline = true;
-          if (!cls) {
-            throw new Error('No se pudo conectar con el servidor de clases. Abre DuckGym desde la misma dirección que tu profesor e inténtalo de nuevo.');
-          }
-        } else if (error.code === 'class_not_found') {
-          throw new Error('No encontramos ninguna clase con ese código. Pide al profesor que lo verifique.');
-        } else {
-          throw new Error(error.message || 'No se pudo vincular la clase.');
-        }
+      // 1) Busca primero en localStorage. Si no está (o el catálogo aún no se cargó),
+      //    actualiza desde classes.json y vuelve a comprobar.
+      if (!cls) {
+        await ensureClassSync(classSyncState !== 'online');
+        cls = getClassStore()[code] || null;
+        source = cls ? (cls._source === 'catalog' || cls._synced === true ? 'catalog' : 'local') : '';
       }
 
-      if (!cls) throw new Error('No encontramos ninguna clase con ese código.');
+      // 2) Valida contra el listado general cargado desde classes.json.
+      if (classCatalogCache[code]) {
+        cls = { ...(cls || {}), ...classCatalogCache[code], code, _synced: true, _source: 'catalog' };
+        source = 'catalog';
+      }
+
+      if (!cls) {
+        throw new Error('No encontramos ninguna clase con ese código. Pide al profesor que lo verifique y vuelve a intentarlo.');
+      }
+
+      const isCatalogClass = source === 'catalog';
       const assigned = new Set(getAssignedClassCodes());
       const already = assigned.has(code);
-      if (!already) {
-        assigned.add(code);
-        saveUserData({ assignedClasses: [...assigned] });
-      }
+
+      saveClassRecord(cls, {
+        _synced: isCatalogClass,
+        _source: isCatalogClass ? 'catalog' : 'local',
+      });
+      saveStudentClassMirror({ ...cls, _synced: isCatalogClass, _source: isCatalogClass ? 'catalog' : 'local' });
+
+      assigned.add(code);
+      saveUserData({ assignedClasses: [...assigned] });
+
+      // 3) Actualiza el catálogo del estudiante al instante, sin recargar.
       syncClassRoutines();
-      return { cls, already, offline };
+      renderAssignedClasses();
+      return { cls, already, source };
     }
 
     function openJoinClassModal(prefill = '') {
@@ -2665,6 +2636,7 @@
       const submitBtn = document.getElementById('joinClassSubmitBtn');
       const originalLabel = submitBtn ? submitBtn.textContent : '';
       errorEl.classList.add('hidden');
+      input.value = normalizeClassCode(input.value);
       if (submitBtn) {
         submitBtn.disabled = true;
         submitBtn.classList.add('opacity-60', 'cursor-wait');
@@ -2672,14 +2644,13 @@
       }
       try {
         const result = await joinClassByCode(input.value);
-        closeJoinClassModal();
         renderRoutines();
+        renderAssignedClasses();
+        closeJoinClassModal();
         showView('routines');
         showToast(result.already
-          ? `Ya estabas vinculado a ${result.cls.name}`
-          : (result.offline
-            ? `🎓 Clase vinculada sin conexión al servidor: ${result.cls.name}`
-            : `🎓 Clase vinculada: ${result.cls.name}`));
+          ? `ℹ️ Ya tenías la clase ${result.cls.name} (${result.cls.code})`
+          : `✅ Clase añadida: ${result.cls.name} · ${result.cls.code}`);
         setTimeout(() => {
           renderAssignedClasses();
           const section = document.getElementById('assignedClassesSection');
@@ -2854,7 +2825,7 @@
       applyRoleUI();
       syncClassRoutines();
       showView('dashboard');
-      ensureClassSync();
+      ensureClassSync(true);
       if (pendingJoinCode) {
         const code = pendingJoinCode;
         pendingJoinCode = '';
@@ -4943,14 +4914,16 @@
         const original = btn.textContent;
         btn.disabled = true;
         btn.classList.add('opacity-60', 'cursor-wait');
-        btn.textContent = '⏳ Sincronizando…';
+        btn.textContent = '⏳ Actualizando…';
         classSyncAt = 0;
         try {
           await ensureClassSync(true);
           renderTeacherClasses();
+          renderAssignedClasses();
+          const count = Object.keys(classCatalogCache).length;
           showToast(classSyncState === 'online'
-            ? '☁️ Clases sincronizadas con el servidor'
-            : '⚠️ No se pudo conectar con el servidor de clases');
+            ? `☁️ Catálogo actualizado: ${count} ${count === 1 ? 'clase disponible' : 'clases disponibles'}`
+            : '⚠️ No se pudo cargar classes.json');
         } finally {
           btn.disabled = false;
           btn.classList.remove('opacity-60', 'cursor-wait');
@@ -5328,7 +5301,8 @@
         if (joinParam && isValidClassCode(joinParam)) pendingJoinCode = normalizeClassCode(joinParam);
       } catch (error) { /* URL no disponible */ }
 
-      // Inicio
+      // Inicio: carga classes.json y sincroniza el catálogo local desde el primer momento.
+      ensureClassSync();
       if (currentUser) { enterApp(); } else { setAuthMode('login'); }
     });
   </script>

@@ -1,0 +1,193 @@
+{
+  "DUCK-5602": {
+    "code": "DUCK-5602",
+    "id": "class-duck-5602",
+    "teacher": "profe_demo",
+    "teacherName": "Profe Demo",
+    "name": "Full Body DUCK",
+    "description": "Circuito completo de fuerza, cardio y movilidad. Úsalo para probar la vinculación por código en Render.",
+    "level": "Intermedio",
+    "emoji": "🦆",
+    "minutes": 25,
+    "createdAt": "2026-11-09T08:00:00.000Z",
+    "enrollmentCount": 3,
+    "exercises": [
+      {
+        "name": "Press de banca con barra",
+        "detail": "4 series × 10 reps",
+        "gif": "https://cdn.jsdelivr.net/gh/JahelCuadrado/ExerciseGymGifsDB@v1.1.0/pectorals/barbell-bench-press.gif",
+        "desc": "Tumbado en el banco, baja la barra al pecho con control y empuja hasta extender los codos sin bloquear.",
+        "sourceCategory": "gym",
+        "sourceName": "Empuje / Pectoral y Hombro"
+      },
+      {
+        "name": "Burpees",
+        "detail": "4 series × 15 reps",
+        "gif": "https://cdn.jsdelivr.net/gh/JahelCuadrado/ExerciseGymGifsDB@v1.1.0/cardio/burpee.gif",
+        "desc": "Flexión, salto a pie y salto vertical; aterriza suave y repite con ritmo constante.",
+        "durationSec": 300,
+        "sourceCategory": "hiit",
+        "sourceName": "Full Body HIIT"
+      },
+      {
+        "name": "Postura del niño (dorsales)",
+        "detail": "45 s",
+        "gif": "https://cdn.jsdelivr.net/gh/JahelCuadrado/ExerciseGymGifsDB@v1.1.0/lats/kneeling-lat-stretch.gif",
+        "desc": "Siéntate sobre los talones, extiende los brazos al frente y respira profundo para relajar la espalda.",
+        "durationSec": 45,
+        "sourceCategory": "yoga",
+        "sourceName": "Movilidad Matinal"
+      }
+    ]
+  },
+  "DUCK-4440": {
+    "code": "DUCK-4440",
+    "id": "class-duck-4440",
+    "teacher": "duck890",
+    "teacherName": "Medrans",
+    "name": "cardio",
+    "description": "",
+    "level": "Principiante",
+    "emoji": "🎓",
+    "minutes": 18,
+    "createdAt": "2026-11-08T15:44:20.041Z",
+    "enrollmentCount": 2,
+    "exercises": [
+      {
+        "name": "Dominadas supinas",
+        "detail": "4 series × 6 reps",
+        "gif": "https://cdn.jsdelivr.net/gh/JahelCuadrado/ExerciseGymGifsDB@v1.1.0/lats/chin-up.gif",
+        "desc": "Agarre supino al ancho de los hombros; tira del cuerpo hasta que la barbilla supere la barra.",
+        "sourceCategory": "gym",
+        "sourceName": "Tracción / Espalda y Bíceps"
+      },
+      {
+        "name": "Remo con barra",
+        "detail": "4 series × 10 reps",
+        "gif": "https://cdn.jsdelivr.net/gh/JahelCuadrado/ExerciseGymGifsDB@v1.1.0/upper-back/barbell-bent-over-row.gif",
+        "desc": "Con el torso inclinado y la espalda neutra, lleva la barra al abdomen apretando los omóplatos.",
+        "sourceCategory": "gym",
+        "sourceName": "Tracción / Espalda y Bíceps"
+      },
+      {
+        "name": "Dominadas supinas",
+        "detail": "4 series × 6 reps",
+        "gif": "https://cdn.jsdelivr.net/gh/JahelCuadrado/ExerciseGymGifsDB@v1.1.0/lats/chin-up.gif",
+        "desc": "Agarre supino al ancho de los hombros; tira del cuerpo hasta que la barbilla supere la barra.",
+        "sourceCategory": "gym",
+        "sourceName": "Tracción / Espalda y Bíceps"
+      }
+    ]
+  },
+  "DUCK-1234": {
+    "code": "DUCK-1234",
+    "id": "class-duck-1234",
+    "teacher": "coach_laura",
+    "teacherName": "Coach Laura",
+    "name": "Running 5K Progresivo",
+    "description": "Sesión de running con calentamiento, rodaje suave e intervalos de 400 m para mejorar el ritmo.",
+    "level": "Intermedio",
+    "emoji": "🏃",
+    "minutes": 35,
+    "createdAt": "2026-11-09T09:30:00.000Z",
+    "enrollmentCount": 5,
+    "exercises": [
+      {
+        "name": "Caminata rápida + movilidad",
+        "detail": "5 min · ~450 m",
+        "gif": "./assets/running/outdoor-running.gif",
+        "desc": "Camina a paso vivo mientras movilizas tobillos, rodillas y cadera. Incluye 20 círculos por articulación y 10 balanceos de pierna por lado.",
+        "durationSec": 300,
+        "distanceKm": 0.45,
+        "sourceCategory": "running",
+        "sourceName": "Calentamiento",
+        "phase": "warmup"
+      },
+      {
+        "name": "Rodaje continuo Z2",
+        "detail": "15 min · ~2,2 km · 6:30–7:00 min/km",
+        "gif": "./assets/running/outdoor-running.gif",
+        "desc": "Trote cómodo a ritmo conversacional. Debes poder hablar en frases completas sin perder la cadencia.",
+        "durationSec": 900,
+        "distanceKm": 2.2,
+        "targetPace": "6:30–7:00 min/km",
+        "sourceCategory": "running",
+        "sourceName": "Carrera Continua Base / Zona 2",
+        "phase": "main"
+      },
+      {
+        "name": "Intervalos 400 m",
+        "detail": "6 × 400 m · 10 min · 4:20–4:40 min/km",
+        "gif": "./assets/running/outdoor-running.gif",
+        "desc": "Corre cada 400 m a ritmo fuerte y controlado. Trota o camina entre repeticiones hasta recuperar.",
+        "durationSec": 600,
+        "distanceKm": 2.4,
+        "targetPace": "4:20–4:40 min/km",
+        "sourceCategory": "running",
+        "sourceName": "Intervalos 400 m",
+        "phase": "main"
+      },
+      {
+        "name": "Vuelta a la calma",
+        "detail": "5 min · caminata + estiramientos",
+        "gif": "./assets/running/outdoor-running.gif",
+        "desc": "Baja el ritmo progresivamente, camina y estira gemelos, cuádriceps e isquiotibiales.",
+        "durationSec": 300,
+        "sourceCategory": "running",
+        "sourceName": "Vuelta a la calma",
+        "phase": "cooldown"
+      }
+    ]
+  },
+  "DUCK-7890": {
+    "code": "DUCK-7890",
+    "id": "class-duck-7890",
+    "teacher": "ana_yoga",
+    "teacherName": "Ana Yoga",
+    "name": "Movilidad Post-Entreno",
+    "description": "Rutina corta de estiramientos para después de fuerza, HIIT o running.",
+    "level": "Recuperación",
+    "emoji": "🧘",
+    "minutes": 10,
+    "createdAt": "2026-11-09T10:00:00.000Z",
+    "enrollmentCount": 1,
+    "exercises": [
+      {
+        "name": "Estiramiento del corredor",
+        "detail": "45 s por pierna",
+        "gif": "https://cdn.jsdelivr.net/gh/JahelCuadrado/ExerciseGymGifsDB@v1.1.0/hamstrings/runners-stretch.gif",
+        "desc": "Apoya una pierna al frente y la otra atrás; baja la cadera y mantén la espalda larga.",
+        "durationSec": 90,
+        "sourceCategory": "yoga",
+        "sourceName": "Yoga de Caderas"
+      },
+      {
+        "name": "Cuádriceps tumbado de lado",
+        "detail": "40 s por pierna",
+        "gif": "https://cdn.jsdelivr.net/gh/JahelCuadrado/ExerciseGymGifsDB@v1.1.0/quads/lying-side-quads-stretch.gif",
+        "desc": "Tumbado de lado, sujeta el pie y acerca el talón al glúteo sin arquear la espalda.",
+        "durationSec": 80,
+        "sourceCategory": "yoga",
+        "sourceName": "Estiramiento Post-Entreno"
+      },
+      {
+        "name": "Apertura de pecho y hombros",
+        "detail": "30 s",
+        "gif": "https://cdn.jsdelivr.net/gh/JahelCuadrado/ExerciseGymGifsDB@v1.1.0/pectorals/chest-and-front-of-shoulder-stretch.gif",
+        "desc": "Entrelaza las manos detrás de la espalda y abre el pecho mientras llevas los hombros atrás.",
+        "durationSec": 30,
+        "sourceCategory": "yoga",
+        "sourceName": "Movilidad Matinal"
+      },
+      {
+        "name": "Postura de la mariposa",
+        "detail": "60 s",
+        "gif": "https://cdn.jsdelivr.net/gh/JahelCuadrado/ExerciseGymGifsDB@v1.1.0/adductors/butterfly-yoga-pose.gif",
+        "desc": "Sentado con las plantas de los pies juntas, deja caer las rodillas y respira lento.",
+        "durationSec": 60,
+        "sourceCategory": "yoga",
+        "sourceName": "Yoga de Caderas"
+      }
+    ]
+  }
+}
