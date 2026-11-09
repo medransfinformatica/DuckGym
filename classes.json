@@ -5,7 +5,7 @@
     "teacher": "profe_demo",
     "teacherName": "Profe Demo",
     "name": "Full Body DUCK",
-    "description": "Circuito completo de fuerza, cardio y movilidad. Úsalo para probar la vinculación por código en Render.",
+    "description": "Circuito completo de fuerza, cardio y movilidad. Úsalo para probar la vinculación por código.",
     "level": "Intermedio",
     "emoji": "🦆",
     "minutes": 25,
@@ -37,6 +37,47 @@
         "durationSec": 45,
         "sourceCategory": "yoga",
         "sourceName": "Movilidad Matinal"
+      }
+    ]
+  },
+  "DUCK-1910": {
+    "code": "DUCK-1910",
+    "id": "class-duck-1910",
+    "teacher": "profe_demo",
+    "teacherName": "Profe Demo",
+    "name": "Circuito Express DUCK",
+    "description": "Clase de prueba de 15 minutos con cardio, piernas y core.",
+    "level": "Principiante",
+    "emoji": "⚡",
+    "minutes": 15,
+    "createdAt": "2026-11-10T08:00:00.000Z",
+    "enrollmentCount": 1,
+    "exercises": [
+      {
+        "name": "Jumping Jacks",
+        "detail": "3 series × 30 s",
+        "gif": "https://cdn.jsdelivr.net/gh/JahelCuadrado/ExerciseGymGifsDB@v1.1.0/cardio/jack-jump-male.gif",
+        "desc": "Salta abriendo piernas y brazos, y vuelve al centro manteniendo un ritmo constante.",
+        "durationSec": 90,
+        "sourceCategory": "hiit",
+        "sourceName": "Rutina HIIT Cardio"
+      },
+      {
+        "name": "Sentadillas con salto",
+        "detail": "3 series × 12 reps",
+        "gif": "https://cdn.jsdelivr.net/gh/JahelCuadrado/ExerciseGymGifsDB@v1.1.0/glutes/jump-squat.gif",
+        "desc": "Baja en sentadilla y salta explosivo; aterriza con las rodillas alineadas y amortigua.",
+        "sourceCategory": "gym",
+        "sourceName": "Pierna / Cadenas Musculares"
+      },
+      {
+        "name": "Plancha isométrica",
+        "detail": "3 series × 30 s",
+        "gif": "https://cdn.jsdelivr.net/gh/JahelCuadrado/ExerciseGymGifsDB@v1.1.0/abs/weighted-front-plank.gif",
+        "desc": "Apoya antebrazos y puntas de pies; mantén el cuerpo en línea recta y el core activado.",
+        "durationSec": 90,
+        "sourceCategory": "gym",
+        "sourceName": "Core y Zona Media"
       }
     ]
   },

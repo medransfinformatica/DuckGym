@@ -575,11 +575,11 @@
               <div class="flex items-start justify-between gap-3">
                 <div>
                   <h3 class="font-extrabold text-white text-lg">📚 Clases creadas</h3>
-                  <p class="text-[11px] text-slate-500 font-medium mt-0.5">Las clases de classes.json se comparten; las nuevas quedan en este dispositivo.</p>
+                  <p class="text-[11px] text-slate-500 font-medium mt-0.5">Las clases se guardan en DUCKGYM_CLASSES_DB, en este navegador.</p>
                 </div>
-                <button id="teacherSyncBtn" type="button" class="shrink-0 px-3 py-2 rounded-xl bg-slate800 text-violet-300 text-[11px] font-extrabold hover:bg-[#334155] transition-colors">🔄 Actualizar catálogo</button>
+                <button id="teacherSyncBtn" type="button" class="shrink-0 px-3 py-2 rounded-xl bg-slate800 text-violet-300 text-[11px] font-extrabold hover:bg-[#334155] transition-colors">🔄 Recargar base local</button>
               </div>
-              <p id="classServerStatus" class="mt-2 text-[11px] font-semibold text-slate-500">El catálogo de clases se carga desde classes.json.</p>
+              <p id="classServerStatus" class="mt-2 text-[11px] font-semibold text-slate-500">📦 Las clases se guardan en la base local de este navegador.</p>
               <div id="teacherClassesList" class="mt-4 space-y-3"></div>
             </div>
           </div>
@@ -614,7 +614,7 @@
         <button id="joinClassCloseBtn" type="button" aria-label="Cerrar" class="text-slate-400 hover:text-white text-2xl leading-none px-1">✕</button>
       </div>
       <p class="text-sm text-slate-400 font-medium mt-2">Introduce el código que te compartió tu profesor. La clase aparecerá automáticamente en tu catálogo.</p>
-      <p class="text-[11px] text-slate-500 font-semibold mt-1.5">💡 El catálogo se carga desde <span class="font-extrabold text-slate-400">classes.json</span>. Puedes escribir el código con o sin guion.</p>
+      <p class="text-[11px] text-slate-500 font-semibold mt-1.5">💡 Los códigos se resuelven en la base local <span class="font-extrabold text-slate-400">DUCKGYM_CLASSES_DB</span>. Puedes escribir el código con o sin guion.</p>
       <label class="block mt-4">
         <span class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Código de clase</span>
         <input id="joinClassCode" type="text" maxlength="12" autocomplete="off" spellcheck="false" placeholder="DUCK-8492" class="mt-1 w-full bg-ink border border-slate800 rounded-xl px-4 py-3 text-center text-2xl font-extrabold tracking-[0.12em] text-violet-300 uppercase placeholder-slate-600 focus:outline-none focus:border-violet-400" />
@@ -1259,7 +1259,6 @@
     let classSyncAt = 0;
     let classSyncInFlight = null;
     let classSyncState = 'idle';
-    let classCatalogCache = {};
     let selectedRoutine = null;
     let currentExerciseIdx = 0;
     let routineSessionStart = 0;
@@ -1768,18 +1767,21 @@
     const routineCategoryLabel = (cat) => ({ gym: 'Gimnasio / Fuerza', outdoor: 'Calistenia / Aire libre', running: 'Running / Aire libre', hiit: 'HIIT / Tabata', yoga: 'Yoga / Movilidad', wod: 'CrossFit / WOD', class: 'Clase Asignada' }[cat] || 'Calistenia / Aire libre');
 
     // ============ GESTIÓN DE CLASES Y VINCULACIÓN POR CÓDIGO ============
-    const CLASS_STORAGE_KEY = 'duckgym_classes';
+    // DUCKGYM_CLASSES_DB es la fuente de verdad local para profesores y estudiantes.
+    // No existe ninguna llamada a PHP ni a un backend de clases.
+    const CLASS_STORAGE_KEY = 'DUCKGYM_CLASSES_DB';
+    const LEGACY_CLASS_STORAGE_KEY = 'duckgym_classes';
     const CLASS_CODE_RE = /^DUCK-[A-Z0-9]{4}$/;
     const CLASS_CATALOG_URL = 'classes.json';
     const STUDENT_CLASSES_KEY = 'DUCKGYM_STUDENT_CLASSES';
     const CLASS_DELETED_KEY = 'duckgym_deleted_classes';
-    const getClassStore = () => readJSON(CLASS_STORAGE_KEY, {});
+    const getClassStore = () => {
+      const raw = readJSON(CLASS_STORAGE_KEY, {});
+      return raw && typeof raw === 'object' && !Array.isArray(raw) ? raw : {};
+    };
     const saveClassStore = (store) => localStorage.setItem(CLASS_STORAGE_KEY, JSON.stringify(store));
     const getCurrentRole = () => (getUserData().role === 'teacher' ? 'teacher' : 'student');
     const classRoutineId = (code) => 'class-' + normalizeClassCode(code).toLowerCase();
-
-    // El catálogo oficial vive en classes.json (Render sirve este archivo estático).
-    // El navegador lo copia a localStorage para poder entrenar también sin conexión.
     function getDeletedClassCodes() {
       const raw = readJSON(CLASS_DELETED_KEY, []);
       if (!Array.isArray(raw)) return [];
@@ -1817,13 +1819,13 @@
     function saveStudentClassMirror(cls) {
       if (!cls || !isValidClassCode(cls.code)) return;
       const code = normalizeClassCode(cls.code);
-      const isCatalogClass = cls._source === 'catalog' || cls._synced === true;
+      const isLocalClass = cls._source === 'local' || cls._synced === false;
       const list = getStudentClassMirror().filter((entry) => studentClassCodeOf(entry) !== code);
       list.push({
         ...cls,
         code,
-        _synced: isCatalogClass,
-        _source: isCatalogClass ? 'catalog' : 'local',
+        _synced: !isLocalClass,
+        _source: isLocalClass ? 'local' : 'database',
         joinedAt: new Date().toISOString(),
       });
       localStorage.setItem(STUDENT_CLASSES_KEY, JSON.stringify(list));
@@ -1871,7 +1873,7 @@
         enrollmentCount: Math.max(0, Number(raw.enrollmentCount) || 0),
         exercises,
         _synced: true,
-        _source: 'catalog',
+        _source: 'database',
       };
     }
 
@@ -1886,6 +1888,129 @@
         if (cls) catalog[cls.code] = cls;
       });
       return catalog;
+    }
+
+    // Respaldo 100% local: estos códigos funcionan aunque classes.json no exista.
+    const DEFAULT_CLASS_SEEDS = [
+      {
+        code: 'DUCK-5602',
+        teacher: 'profe_demo',
+        teacherName: 'Profe Demo',
+        name: 'Full Body DUCK',
+        description: 'Circuito completo de fuerza, cardio y movilidad.',
+        level: 'Intermedio',
+        emoji: '🦆',
+        minutes: 25,
+        createdAt: '2026-11-09T08:00:00.000Z',
+        enrollmentCount: 3,
+        exercises: [
+          {
+            name: 'Press de banca con barra',
+            detail: '4 series × 10 reps',
+            gif: 'https://cdn.jsdelivr.net/gh/JahelCuadrado/ExerciseGymGifsDB@v1.1.0/pectorals/barbell-bench-press.gif',
+            desc: 'Tumbado en el banco, baja la barra al pecho con control y empuja hasta extender los codos sin bloquear.',
+            sourceCategory: 'gym',
+            sourceName: 'Empuje / Pectoral y Hombro',
+          },
+          {
+            name: 'Burpees',
+            detail: '4 series × 15 reps',
+            gif: 'https://cdn.jsdelivr.net/gh/JahelCuadrado/ExerciseGymGifsDB@v1.1.0/cardio/burpee.gif',
+            desc: 'Flexión, salto a pie y salto vertical; aterriza suave y repite con ritmo constante.',
+            durationSec: 300,
+            sourceCategory: 'hiit',
+            sourceName: 'Full Body HIIT',
+          },
+          {
+            name: 'Postura del niño (dorsales)',
+            detail: '45 s',
+            gif: 'https://cdn.jsdelivr.net/gh/JahelCuadrado/ExerciseGymGifsDB@v1.1.0/lats/kneeling-lat-stretch.gif',
+            desc: 'Siéntate sobre los talones, extiende los brazos al frente y respira profundo para relajar la espalda.',
+            durationSec: 45,
+            sourceCategory: 'yoga',
+            sourceName: 'Movilidad Matinal',
+          },
+        ],
+      },
+      {
+        code: 'DUCK-1910',
+        teacher: 'profe_demo',
+        teacherName: 'Profe Demo',
+        name: 'Circuito Express DUCK',
+        description: 'Clase de prueba de 15 minutos con cardio, piernas y core.',
+        level: 'Principiante',
+        emoji: '⚡',
+        minutes: 15,
+        createdAt: '2026-11-10T08:00:00.000Z',
+        enrollmentCount: 1,
+        exercises: [
+          {
+            name: 'Jumping Jacks',
+            detail: '3 series × 30 s',
+            gif: 'https://cdn.jsdelivr.net/gh/JahelCuadrado/ExerciseGymGifsDB@v1.1.0/cardio/jack-jump-male.gif',
+            desc: 'Salta abriendo piernas y brazos, y vuelve al centro manteniendo un ritmo constante.',
+            durationSec: 90,
+            sourceCategory: 'hiit',
+            sourceName: 'Rutina HIIT Cardio',
+          },
+          {
+            name: 'Sentadillas con salto',
+            detail: '3 series × 12 reps',
+            gif: 'https://cdn.jsdelivr.net/gh/JahelCuadrado/ExerciseGymGifsDB@v1.1.0/glutes/jump-squat.gif',
+            desc: 'Baja en sentadilla y salta explosivo; aterriza con las rodillas alineadas y amortigua.',
+            sourceCategory: 'gym',
+            sourceName: 'Pierna / Cadenas Musculares',
+          },
+          {
+            name: 'Plancha isométrica',
+            detail: '3 series × 30 s',
+            gif: 'https://cdn.jsdelivr.net/gh/JahelCuadrado/ExerciseGymGifsDB@v1.1.0/abs/weighted-front-plank.gif',
+            desc: 'Apoya antebrazos y puntas de pies; mantén el cuerpo en línea recta y el core activado.',
+            durationSec: 90,
+            sourceCategory: 'gym',
+            sourceName: 'Core y Zona Media',
+          },
+        ],
+      },
+    ];
+
+    function migrateLegacyClassStore() {
+      const legacy = readJSON(LEGACY_CLASS_STORAGE_KEY, null);
+      if (!legacy || typeof legacy !== 'object' || Array.isArray(legacy)) return;
+      const store = getClassStore();
+      let changed = false;
+      Object.entries(legacy).forEach(([rawCode, rawClass]) => {
+        if (!rawClass || typeof rawClass !== 'object') return;
+        const code = normalizeClassCode(rawClass.code || rawCode);
+        if (!isValidClassCode(code) || store[code]) return;
+        store[code] = {
+          ...rawClass,
+          code,
+          id: classRoutineId(code),
+          _synced: rawClass._synced === true,
+          _source: rawClass._source === 'local' || rawClass._synced === false ? 'local' : 'database',
+        };
+        changed = true;
+      });
+      if (changed) saveClassStore(store);
+    }
+
+    function ensureClassDatabase() {
+      migrateLegacyClassStore();
+      const store = getClassStore();
+      const validClasses = Object.values(store).filter((cls) => cls && isValidClassCode(cls.code));
+      if (validClasses.length) return store;
+
+      // Si la base local está vacía, se inyectan clases de prueba sin depender de la red.
+      const deleted = new Set(getDeletedClassCodes());
+      const seeded = {};
+      DEFAULT_CLASS_SEEDS.forEach((raw) => {
+        const cls = normalizeCatalogClass(raw);
+        if (!cls || deleted.has(cls.code)) return;
+        seeded[cls.code] = { ...cls, _source: 'seed', _synced: true };
+      });
+      if (Object.keys(seeded).length) saveClassStore(seeded);
+      return seeded;
     }
 
     async function fetchClassCatalog() {
@@ -1917,31 +2042,35 @@
       const deleted = new Set(getDeletedClassCodes());
       Object.entries(catalog).forEach(([code, cls]) => {
         if (!cls || deleted.has(code)) return;
+        const existing = store[code];
+        // Una clase creada por el profesor en este navegador siempre tiene prioridad.
+        if (existing && existing._source === 'local') return;
         store[code] = {
-          ...(store[code] || {}),
+          ...(existing || {}),
           ...cls,
           _synced: true,
-          _source: 'catalog',
+          _source: 'database',
         };
       });
       saveClassStore(store);
     }
 
-    function refreshStudentClassMirror(catalog) {
+    function refreshStudentClassMirror() {
       const store = getClassStore();
       const current = getStudentClassMirror();
       const byCode = new Map(current.map((entry) => [studentClassCodeOf(entry), entry]));
       let changed = false;
       getAssignedClassCodes().forEach((code) => {
-        const cls = (catalog && catalog[code]) || store[code];
+        const cls = store[code];
         if (!cls) return;
         const previous = byCode.get(code) || {};
+        const isLocalClass = cls._source === 'local' || cls._synced === false;
         byCode.set(code, {
           ...previous,
           ...cls,
           code,
-          _synced: true,
-          _source: 'catalog',
+          _synced: !isLocalClass,
+          _source: isLocalClass ? 'local' : 'database',
         });
         changed = true;
       });
@@ -1951,16 +2080,16 @@
     }
 
     async function syncClassesFromCatalog() {
+      ensureClassDatabase();
       try {
         const catalog = await fetchClassCatalog();
-        classCatalogCache = catalog;
         mergeClassCatalog(catalog);
-        refreshStudentClassMirror(catalog);
-        return true;
       } catch (error) {
-        console.warn('DuckGym: no se pudo cargar classes.json; se usan las clases locales.', error);
-        return false;
+        // classes.json es opcional: la base local ya contiene las clases de respaldo.
+        console.warn('DuckGym: catálogo estático no disponible; se usa DUCKGYM_CLASSES_DB.', error);
       }
+      refreshStudentClassMirror();
+      return Object.keys(getClassStore()).length > 0;
     }
 
     function saveClassRecord(cls, extra = {}) {
@@ -1987,17 +2116,17 @@
 
     function ensureClassSync(force = false) {
       if (classSyncInFlight) return classSyncInFlight;
-      if (!force && classSyncAt && Date.now() - classSyncAt < 30000) return Promise.resolve(classSyncState === 'online');
+      ensureClassDatabase();
+      if (!force && classSyncAt && Date.now() - classSyncAt < 30000) return Promise.resolve(true);
 
-      classSyncState = 'checking';
+      classSyncState = 'loading';
       updateClassServerStatus();
 
       const syncPromise = (async () => {
-        let reachable = false;
         try {
-          reachable = await syncClassesFromCatalog();
+          await syncClassesFromCatalog();
         } finally {
-          classSyncState = reachable ? 'online' : 'offline';
+          classSyncState = 'ready';
           classSyncAt = Date.now();
           classSyncInFlight = null;
           if (currentUser) {
@@ -2012,7 +2141,7 @@
           }
           updateClassServerStatus();
         }
-        return reachable;
+        return true;
       })();
       classSyncInFlight = syncPromise;
       return syncPromise;
@@ -2021,19 +2150,16 @@
     function updateClassServerStatus() {
       const statusEl = document.getElementById('classServerStatus');
       if (!statusEl) return;
-      const catalogCount = Object.keys(classCatalogCache).length;
-      if (classSyncState === 'checking') {
+      const classCount = Object.keys(getClassStore()).length;
+      if (classSyncState === 'loading') {
         statusEl.className = 'mt-2 text-[11px] font-semibold text-slate-400';
-        statusEl.textContent = '⏳ Cargando el catálogo classes.json…';
-      } else if (classSyncState === 'online') {
+        statusEl.textContent = '⏳ Preparando la base local de clases…';
+      } else if (classSyncState === 'ready') {
         statusEl.className = 'mt-2 text-[11px] font-semibold text-emerald-400';
-        statusEl.textContent = `☁️ classes.json cargado: ${catalogCount} ${catalogCount === 1 ? 'clase disponible' : 'clases disponibles'}.`;
-      } else if (classSyncState === 'offline') {
-        statusEl.className = 'mt-2 text-[11px] font-semibold text-amber-400';
-        statusEl.textContent = '⚠️ No se pudo cargar classes.json. Se usan las clases guardadas en este dispositivo.';
+        statusEl.textContent = `📦 DUCKGYM_CLASSES_DB lista: ${classCount} ${classCount === 1 ? 'clase disponible' : 'clases disponibles'}.`;
       } else {
         statusEl.className = 'mt-2 text-[11px] font-semibold text-slate-500';
-        statusEl.textContent = 'El catálogo de clases se carga desde classes.json.';
+        statusEl.textContent = '📦 Las clases se guardan en la base local de este navegador.';
       }
     }
 
@@ -2338,10 +2464,10 @@
       listEl.innerHTML = classes.map((cls) => {
         const routineId = classRoutineId(cls.code);
         const enrolled = Math.max(Number(cls.enrollmentCount) || 0, classEnrollmentCount(cls.code));
-        const isCatalogClass = cls._source === 'catalog' || cls._synced === true;
-        const syncBadge = isCatalogClass
-          ? ' · <span class="text-emerald-400" title="Disponible en classes.json para cualquier dispositivo">☁️ En classes.json</span>'
-          : ' · <span class="text-amber-400" title="Guardada solo en este navegador">💾 Solo este dispositivo</span>';
+        const isLocalClass = cls._source === 'local' || cls._synced === false;
+        const syncBadge = isLocalClass
+          ? ' · <span class="text-amber-400" title="Creada por el profesor en este navegador">✏️ Creada aquí</span>'
+          : ' · <span class="text-emerald-400" title="Disponible en DUCKGYM_CLASSES_DB">📦 Base local</span>';
         return `
           <article class="rounded-xl border border-slate800 bg-ink/50 p-3">
             <div class="flex items-start justify-between gap-2">
@@ -2426,14 +2552,14 @@
       if (checklistBtn) checklistBtn.dataset.checklist = classRoutineId(cls.code);
       const syncNote = document.getElementById('classSavedSyncNote');
       if (syncNote) {
-        const isCatalogClass = cls._source === 'catalog' || cls._synced === true;
-        if (isCatalogClass) {
-          syncNote.className = 'mt-3 rounded-xl border border-emerald-400/30 bg-emerald-400/10 px-3 py-2 text-[11px] font-semibold text-emerald-300';
-          syncNote.textContent = '☁️ Clase incluida en classes.json: el código funciona en cualquier dispositivo.';
+        const isLocalClass = cls._source === 'local' || cls._synced === false;
+        if (isLocalClass) {
+          syncNote.className = 'mt-3 rounded-xl border border-amber-400/30 bg-amber-400/10 px-3 py-2 text-[11px] font-semibold text-amber-300';
+          syncNote.textContent = '✅ Clase guardada en DUCKGYM_CLASSES_DB. Comparte el código con estudiantes que usen este mismo navegador.';
           syncNote.classList.remove('hidden');
         } else {
-          syncNote.className = 'mt-3 rounded-xl border border-amber-400/30 bg-amber-400/10 px-3 py-2 text-[11px] font-semibold text-amber-300';
-          syncNote.textContent = '💾 Guardada en este dispositivo. Para publicarla en Render, añade su JSON a classes.json y vuelve a desplegar.';
+          syncNote.className = 'mt-3 rounded-xl border border-emerald-400/30 bg-emerald-400/10 px-3 py-2 text-[11px] font-semibold text-emerald-300';
+          syncNote.textContent = '📦 Clase disponible en la base local DUCKGYM_CLASSES_DB de este navegador.';
           syncNote.classList.remove('hidden');
         }
       }
@@ -2498,6 +2624,7 @@
         return;
       }
 
+      ensureClassDatabase();
       const exercises = classDraft.map((block) => {
         const { uid, ...data } = block;
         return { ...data };
@@ -2536,7 +2663,7 @@
         renderTeacherClasses();
         renderAssignedClasses();
         showClassSaved(cls);
-        showToast(`🎓 Clase creada · Código ${code} (guardada en este dispositivo)`);
+        showToast(`🎓 Clase creada · Código ${code} · Guardada en DUCKGYM_CLASSES_DB`);
       } finally {
         classSaving = false;
         renderClassDraft();
@@ -2548,7 +2675,7 @@
       const store = getClassStore();
       const cls = store[normalized];
       if (!cls || cls.teacher !== currentUser) return;
-      if (!window.confirm(`¿Eliminar la clase "${cls.name}" de este dispositivo?`)) return;
+      if (!window.confirm(`¿Eliminar la clase "${cls.name}" de DUCKGYM_CLASSES_DB en este navegador?`)) return;
 
       delete store[normalized];
       saveClassStore(store);
@@ -2561,7 +2688,7 @@
       syncClassRoutines();
       renderTeacherClasses();
       renderAssignedClasses();
-      showToast('Clase eliminada de este dispositivo');
+      showToast('Clase eliminada de DUCKGYM_CLASSES_DB');
     }
 
     async function joinClassByCode(rawCode) {
@@ -2569,44 +2696,30 @@
       if (!isValidClassCode(code)) throw new Error('El código debe tener el formato DUCK-XXXX.');
       if (!currentUser) throw new Error('Inicia sesión para vincularte a una clase.');
 
-      let cls = getClassStore()[code] || null;
-      let source = cls ? (cls._source === 'catalog' || cls._synced === true ? 'catalog' : 'local') : '';
-
-      // 1) Busca primero en localStorage. Si no está (o el catálogo aún no se cargó),
-      //    actualiza desde classes.json y vuelve a comprobar.
+      // Búsqueda estricta en la base local compartida: DUCKGYM_CLASSES_DB.
+      ensureClassDatabase();
+      const cls = getClassStore()[code] || null;
       if (!cls) {
-        await ensureClassSync(classSyncState !== 'online');
-        cls = getClassStore()[code] || null;
-        source = cls ? (cls._source === 'catalog' || cls._synced === true ? 'catalog' : 'local') : '';
+        throw new Error('No encontramos ninguna clase con ese código en la base local. Pide al profesor que lo verifique y vuelve a intentarlo.');
       }
 
-      // 2) Valida contra el listado general cargado desde classes.json.
-      if (classCatalogCache[code]) {
-        cls = { ...(cls || {}), ...classCatalogCache[code], code, _synced: true, _source: 'catalog' };
-        source = 'catalog';
-      }
-
-      if (!cls) {
-        throw new Error('No encontramos ninguna clase con ese código. Pide al profesor que lo verifique y vuelve a intentarlo.');
-      }
-
-      const isCatalogClass = source === 'catalog';
+      const isLocalClass = cls._source === 'local' || cls._synced === false;
       const assigned = new Set(getAssignedClassCodes());
       const already = assigned.has(code);
 
       saveClassRecord(cls, {
-        _synced: isCatalogClass,
-        _source: isCatalogClass ? 'catalog' : 'local',
+        _synced: !isLocalClass,
+        _source: isLocalClass ? 'local' : 'database',
       });
-      saveStudentClassMirror({ ...cls, _synced: isCatalogClass, _source: isCatalogClass ? 'catalog' : 'local' });
+      saveStudentClassMirror({ ...cls, _synced: !isLocalClass, _source: isLocalClass ? 'local' : 'database' });
 
       assigned.add(code);
       saveUserData({ assignedClasses: [...assigned] });
 
-      // 3) Actualiza el catálogo del estudiante al instante, sin recargar.
+      // Actualización reactiva: rutinas y tarjetas del estudiante al instante.
       syncClassRoutines();
       renderAssignedClasses();
-      return { cls, already, source };
+      return { cls, already, source: isLocalClass ? 'local' : 'database' };
     }
 
     function openJoinClassModal(prefill = '') {
@@ -4914,16 +5027,14 @@
         const original = btn.textContent;
         btn.disabled = true;
         btn.classList.add('opacity-60', 'cursor-wait');
-        btn.textContent = '⏳ Actualizando…';
+        btn.textContent = '⏳ Recargando…';
         classSyncAt = 0;
         try {
           await ensureClassSync(true);
           renderTeacherClasses();
           renderAssignedClasses();
-          const count = Object.keys(classCatalogCache).length;
-          showToast(classSyncState === 'online'
-            ? `☁️ Catálogo actualizado: ${count} ${count === 1 ? 'clase disponible' : 'clases disponibles'}`
-            : '⚠️ No se pudo cargar classes.json');
+          const count = Object.keys(getClassStore()).length;
+          showToast(`📦 Base local recargada: ${count} ${count === 1 ? 'clase disponible' : 'clases disponibles'}`);
         } finally {
           btn.disabled = false;
           btn.classList.remove('opacity-60', 'cursor-wait');
@@ -5292,7 +5403,7 @@
       // Historial
       document.getElementById('clearHistoryBtn').addEventListener('click', clearRoutineHistory);
 
-      // Datos de running: se pinta la copia local y se actualiza desde el JSON si hay servidor.
+      // Datos de running: se pinta la copia local y se completa desde running_workouts.json si está disponible.
       loadRunningWorkouts();
 
       // Enlace de invitación: ?join=DUCK-8492
@@ -5301,7 +5412,7 @@
         if (joinParam && isValidClassCode(joinParam)) pendingJoinCode = normalizeClassCode(joinParam);
       } catch (error) { /* URL no disponible */ }
 
-      // Inicio: carga classes.json y sincroniza el catálogo local desde el primer momento.
+      // Inicio: prepara DUCKGYM_CLASSES_DB y, si existe, suma classes.json como catálogo base.
       ensureClassSync();
       if (currentUser) { enterApp(); } else { setAuthMode('login'); }
     });
