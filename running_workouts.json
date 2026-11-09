@@ -1,0 +1,418 @@
+{
+  "format": "duckgym-running-workouts",
+  "version": 1,
+  "source": "running_workouts.json",
+  "description": "Rutinas de running y cardio al aire libre para DuckGym. Cada bloque contiene calentamiento, trabajo principal y vuelta a la calma con tramos medidos por tiempo o distancia.",
+  "workouts": [
+    {
+      "id": "run-base-z2",
+      "category": "running",
+      "emoji": "🏃",
+      "name": "Carrera Continua Base / Zona 2",
+      "level": "Intermedio",
+      "minutes": 45,
+      "description": "Rodaje continuo a ritmo conversacional para construir base aeróbica, mejorar la eficiencia y fortalecer tendones y articulaciones sin acumular fatiga.",
+      "source": "running_workouts.json",
+      "sourceUrl": "./running_workouts.json",
+      "animationUrl": "./assets/running/outdoor-running.gif",
+      "animationAlt": "GIF de dos corredores entrenando en una pista de atletismo al aire libre",
+      "animationLabel": "Rodaje continuo Z2",
+      "animationSpeedMs": 1050,
+      "animationKey": "easy",
+      "blocks": [
+        {
+          "phase": "warmup",
+          "title": "Calentamiento",
+          "description": "Sube pulsaciones de forma progresiva antes del bloque principal.",
+          "segments": [
+            {
+              "kind": "walk",
+              "name": "Caminata rápida + movilidad",
+              "durationSec": 300,
+              "distanceKm": 0.45,
+              "target": "RPE 3–4 · respiración cómoda",
+              "desc": "Camina a paso vivo mientras movilizas tobillos, rodillas y cadera. Incluye 20 círculos por articulación y 10 balanceos de pierna por lado.",
+              "animationUrl": "./assets/running/outdoor-running.gif",
+              "animationAlt": "GIF de dos corredores entrenando en una pista de atletismo al aire libre",
+              "animationLabel": "Caminata rápida + movilidad",
+              "animationSpeedMs": 1600,
+              "animationKey": "warmup"
+            },
+            {
+              "kind": "run",
+              "name": "Trote suave",
+              "durationSec": 300,
+              "distanceKm": 0.75,
+              "target": "RPE 4–5 · ritmo fácil",
+              "targetPace": "7:00–7:30 min/km",
+              "desc": "Trota sin buscar ritmo. Comprueba que puedes hablar en frases completas y que la cadencia es ligera, sin zancada larga.",
+              "animationUrl": "./assets/running/outdoor-running.gif",
+              "animationAlt": "GIF de dos corredores entrenando en una pista de atletismo al aire libre",
+              "animationLabel": "Trote suave",
+              "animationSpeedMs": 1100,
+              "animationKey": "easy"
+            }
+          ]
+        },
+        {
+          "phase": "main",
+          "title": "Bloque principal · Zona 2",
+          "description": "30 minutos de carrera continua a ritmo conversacional. Si las pulsaciones suben por encima de la zona, camina 30–60 s y retoma.",
+          "segments": [
+            {
+              "kind": "run",
+              "name": "Carrera continua en Zona 2",
+              "durationSec": 1800,
+              "distanceKm": 4.9,
+              "target": "Ritmo conversacional",
+              "targetPace": "6:15–6:45 min/km",
+              "hrZone": "Z2 · 60–70 % FCmáx",
+              "desc": "Mantén un esfuerzo aeróbico estable. La respiración debe ser nasal o mixta y poder mantener una conversación. Evita acelerar al final: el objetivo es sumar minutos de calidad.",
+              "animationUrl": "./assets/running/outdoor-running.gif",
+              "animationAlt": "GIF de dos corredores entrenando en una pista de atletismo al aire libre",
+              "animationLabel": "Carrera continua en Zona 2",
+              "animationSpeedMs": 1100,
+              "animationKey": "easy"
+            }
+          ]
+        },
+        {
+          "phase": "cooldown",
+          "title": "Enfriamiento",
+          "description": "Baja pulsaciones y recupera movilidad antes de terminar.",
+          "segments": [
+            {
+              "kind": "walk",
+              "name": "Caminata de vuelta a la calma",
+              "durationSec": 240,
+              "distanceKm": 0.3,
+              "target": "Respiración nasal y hombros relajados",
+              "desc": "Reduce el ritmo progresivamente hasta caminar. Respira profundo por la nariz y deja que las pulsaciones bajen.",
+              "animationUrl": "./assets/running/outdoor-running.gif",
+              "animationAlt": "GIF de dos corredores entrenando en una pista de atletismo al aire libre",
+              "animationLabel": "Caminata de vuelta a la calma",
+              "animationSpeedMs": 2200,
+              "animationKey": "cooldown"
+            },
+            {
+              "kind": "stretch",
+              "name": "Estiramientos de gemelos, cuádriceps e isquios",
+              "durationSec": 60,
+              "target": "20 s por grupo muscular",
+              "desc": "Estira sin rebotes. Prioriza gemelos, cuádriceps e isquiotibiales con una tensión cómoda.",
+              "animationUrl": "./assets/running/outdoor-running.gif",
+              "animationAlt": "GIF de dos corredores entrenando en una pista de atletismo al aire libre",
+              "animationLabel": "Estiramientos de gemelos, cuádriceps e isquios",
+              "animationSpeedMs": 2200,
+              "animationKey": "cooldown"
+            }
+          ]
+        }
+      ],
+      "previewGif": "./assets/running/outdoor-running.gif",
+      "previewAlt": "GIF de dos corredores entrenando en una pista de atletismo al aire libre",
+      "previewLabel": "Trote aeróbico continuo"
+    },
+    {
+      "id": "run-intervals-400",
+      "category": "running",
+      "emoji": "⚡",
+      "name": "Entrenamiento de Intervalos / Series",
+      "level": "Avanzado",
+      "minutes": 35,
+      "description": "Sesión de VO2máx con series de 400 m a ritmo fuerte y recuperaciones activas. Mejora la potencia aeróbica y la capacidad de sostener ritmos altos.",
+      "source": "running_workouts.json",
+      "sourceUrl": "./running_workouts.json",
+      "animationUrl": "./assets/running/outdoor-intervals.gif",
+      "animationAlt": "GIF de una corredora esprintando en una pista de atletismo al aire libre",
+      "animationLabel": "Series 6 × 400 m",
+      "animationSpeedMs": 640,
+      "animationKey": "interval",
+      "blocks": [
+        {
+          "phase": "warmup",
+          "title": "Calentamiento",
+          "description": "Prepara la musculatura y activa el sistema nervioso antes de las series.",
+          "segments": [
+            {
+              "kind": "walk",
+              "name": "Caminata rápida + movilidad",
+              "durationSec": 180,
+              "distanceKm": 0.3,
+              "target": "RPE 3 · respiración cómoda",
+              "desc": "Camina a paso vivo y moviliza tobillos, rodillas y cadera antes de trotar.",
+              "animationUrl": "./assets/running/outdoor-running.gif",
+              "animationAlt": "GIF de dos corredores entrenando en una pista de atletismo al aire libre",
+              "animationLabel": "Caminata rápida + movilidad",
+              "animationSpeedMs": 1600,
+              "animationKey": "warmup"
+            },
+            {
+              "kind": "run",
+              "name": "Trote suave",
+              "durationSec": 300,
+              "distanceKm": 0.8,
+              "target": "RPE 4–5 · ritmo fácil",
+              "targetPace": "6:45–7:15 min/km",
+              "desc": "Trota de forma relajada. Termina el bloque con la sensación de poder seguir hablando sin ahogarte.",
+              "animationUrl": "./assets/running/outdoor-running.gif",
+              "animationAlt": "GIF de dos corredores entrenando en una pista de atletismo al aire libre",
+              "animationLabel": "Trote suave",
+              "animationSpeedMs": 1100,
+              "animationKey": "easy"
+            },
+            {
+              "kind": "drill",
+              "name": "Progresivos y técnica de carrera",
+              "durationSec": 120,
+              "distanceKm": 0.15,
+              "target": "4 × 20 s de progresión",
+              "desc": "Haz cuatro progresiones cortas de 20 segundos con recuperación caminando. Cuida la cadencia, la pisada y la postura erguida.",
+              "animationUrl": "./assets/running/outdoor-cadence.gif",
+              "animationAlt": "GIF de la zancada y el apoyo del pie de una corredora en una pista de atletismo",
+              "animationLabel": "Progresivos y técnica de carrera",
+              "animationSpeedMs": 560,
+              "animationKey": "cadence"
+            }
+          ]
+        },
+        {
+          "phase": "main",
+          "title": "Series 6 × 400 m",
+          "description": "Seis repeticiones de 400 m a ritmo fuerte con 90 s de recuperación activa. El objetivo es mantener el mismo tiempo en todas las series, no empezar demasiado rápido.",
+          "repeat": 6,
+          "work": {
+            "kind": "interval",
+            "mode": "distance",
+            "name": "400 m a ritmo fuerte",
+            "distanceKm": 0.4,
+            "estimatedSec": 105,
+            "target": "Esfuerzo controlado, no sprint",
+            "targetPace": "4:20–4:40 min/km",
+            "hrZone": "Z4 · 85–90 % FCmáx",
+            "desc": "Corre los 400 m con zancada relajada y brazos activos. Busca la misma sensación de esfuerzo en cada repetición y termina con la sensación de poder hacer una más.",
+            "animationUrl": "./assets/running/outdoor-intervals.gif",
+            "animationAlt": "GIF de una corredora esprintando en una pista de atletismo al aire libre",
+            "animationLabel": "400 m a ritmo fuerte",
+            "animationSpeedMs": 580,
+            "animationKey": "interval"
+          },
+          "recovery": {
+            "kind": "recovery",
+            "name": "Recuperación activa",
+            "durationSec": 90,
+            "distanceKm": 0.2,
+            "target": "Trote muy suave o caminata",
+            "desc": "Baja el ritmo hasta que la respiración se recupere. No te pares del todo: el trote suave ayuda a eliminar metabolitos.",
+            "animationUrl": "./assets/running/outdoor-running.gif",
+            "animationAlt": "GIF de dos corredores entrenando en una pista de atletismo al aire libre",
+            "animationLabel": "Recuperación activa",
+            "animationSpeedMs": 1300,
+            "animationKey": "recovery"
+          }
+        },
+        {
+          "phase": "cooldown",
+          "title": "Enfriamiento",
+          "description": "Vuelve a la calma y recupera la movilidad de piernas.",
+          "segments": [
+            {
+              "kind": "walk",
+              "name": "Caminata de vuelta a la calma",
+              "durationSec": 240,
+              "distanceKm": 0.3,
+              "target": "Respiración nasal y hombros relajados",
+              "desc": "Camina hasta que las pulsaciones bajen de forma evidente. Aprovecha para respirar de forma lenta y consciente.",
+              "animationUrl": "./assets/running/outdoor-running.gif",
+              "animationAlt": "GIF de dos corredores entrenando en una pista de atletismo al aire libre",
+              "animationLabel": "Caminata de vuelta a la calma",
+              "animationSpeedMs": 2200,
+              "animationKey": "cooldown"
+            },
+            {
+              "kind": "stretch",
+              "name": "Estiramientos de gemelos, cuádriceps e isquios",
+              "durationSec": 60,
+              "target": "20 s por grupo muscular",
+              "desc": "Estira sin rebotes y con una tensión cómoda. Incide en gemelos, cuádriceps e isquiotibiales.",
+              "animationUrl": "./assets/running/outdoor-running.gif",
+              "animationAlt": "GIF de dos corredores entrenando en una pista de atletismo al aire libre",
+              "animationLabel": "Estiramientos de gemelos, cuádriceps e isquios",
+              "animationSpeedMs": 2200,
+              "animationKey": "cooldown"
+            }
+          ]
+        }
+      ],
+      "previewGif": "./assets/running/outdoor-intervals.gif",
+      "previewAlt": "GIF de una corredora esprintando en una pista de atletismo al aire libre",
+      "previewLabel": "Series y velocidad"
+    },
+    {
+      "id": "run-cadence",
+      "category": "running",
+      "emoji": "👣",
+      "name": "Progreso de Cadencia y Ritmo",
+      "level": "Intermedio",
+      "minutes": 36,
+      "description": "Combina bloques de tempo con ejercicios de cadencia para correr más eficiente: pasos más rápidos, zancada más corta y control del ritmo por zona.",
+      "source": "running_workouts.json",
+      "sourceUrl": "./running_workouts.json",
+      "animationUrl": "./assets/running/outdoor-cadence.gif",
+      "animationAlt": "GIF de la zancada y el apoyo del pie de una corredora en una pista de atletismo",
+      "animationLabel": "Cadencia y tempo",
+      "animationSpeedMs": 620,
+      "animationKey": "cadence",
+      "blocks": [
+        {
+          "phase": "warmup",
+          "title": "Calentamiento",
+          "description": "Activa piernas y pies con movilidad y técnica antes del tempo.",
+          "segments": [
+            {
+              "kind": "walk",
+              "name": "Caminata rápida",
+              "durationSec": 120,
+              "distanceKm": 0.2,
+              "target": "RPE 3 · respiración cómoda",
+              "desc": "Camina a paso vivo mientras movilizas tobillos y cadera. Incluye círculos de tobillo en ambos sentidos.",
+              "animationUrl": "./assets/running/outdoor-running.gif",
+              "animationAlt": "GIF de dos corredores entrenando en una pista de atletismo al aire libre",
+              "animationLabel": "Caminata rápida",
+              "animationSpeedMs": 1600,
+              "animationKey": "warmup"
+            },
+            {
+              "kind": "run",
+              "name": "Trote suave",
+              "durationSec": 240,
+              "distanceKm": 0.6,
+              "target": "RPE 4 · ritmo fácil",
+              "targetPace": "7:00–7:20 min/km",
+              "desc": "Trota relajado, con pasos cortos y frecuentes. Escucha el contacto suave de los pies con el suelo.",
+              "animationUrl": "./assets/running/outdoor-running.gif",
+              "animationAlt": "GIF de dos corredores entrenando en una pista de atletismo al aire libre",
+              "animationLabel": "Trote suave",
+              "animationSpeedMs": 1100,
+              "animationKey": "easy"
+            },
+            {
+              "kind": "drill",
+              "name": "Técnica de carrera y cadencia",
+              "durationSec": 120,
+              "distanceKm": 0.1,
+              "target": "170–180 pasos/min",
+              "desc": "Alterna skipping bajo, talones a glúteo y rodillas altas. Busca una cadencia ágil sin aumentar la zancada.",
+              "animationUrl": "./assets/running/outdoor-cadence.gif",
+              "animationAlt": "GIF de la zancada y el apoyo del pie de una corredora en una pista de atletismo",
+              "animationLabel": "Técnica de carrera y cadencia",
+              "animationSpeedMs": 560,
+              "animationKey": "cadence"
+            }
+          ]
+        },
+        {
+          "phase": "main",
+          "title": "Tempo 3 × 4 min",
+          "description": "Bloques de tempo aeróbico controlado con recuperación cómoda. Mantén el ritmo estable en los tres bloques.",
+          "repeat": 3,
+          "work": {
+            "kind": "tempo",
+            "name": "Tempo a ritmo objetivo",
+            "durationSec": 240,
+            "distanceKm": 0.75,
+            "target": "Ritmo controlado · no sprint",
+            "targetPace": "5:10–5:30 min/km",
+            "hrZone": "Z3 · 75–85 % FCmáx",
+            "desc": "Corre a un ritmo exigente pero sostenible. Debes poder decir palabras sueltas, no frases completas. Mantén la cadencia alta y el torso relajado.",
+            "animationUrl": "./assets/running/outdoor-cadence.gif",
+            "animationAlt": "GIF de la zancada y el apoyo del pie de una corredora en una pista de atletismo",
+            "animationLabel": "Tempo a ritmo objetivo",
+            "animationSpeedMs": 780,
+            "animationKey": "tempo"
+          },
+          "recovery": {
+            "kind": "recovery",
+            "name": "Trote suave",
+            "durationSec": 120,
+            "distanceKm": 0.3,
+            "target": "RPE 4 · recupera el aliento",
+            "desc": "Baja el ritmo y respira de forma profunda. La recuperación debe permitirte empezar el siguiente bloque con control.",
+            "animationUrl": "./assets/running/outdoor-running.gif",
+            "animationAlt": "GIF de dos corredores entrenando en una pista de atletismo al aire libre",
+            "animationLabel": "Trote suave",
+            "animationSpeedMs": 1300,
+            "animationKey": "recovery"
+          }
+        },
+        {
+          "phase": "main",
+          "title": "Cadencia 3 × 30 s",
+          "description": "Repeticiones cortas para aumentar la frecuencia de pasos. Prioriza la rapidez de pies sobre la longitud de zancada.",
+          "repeat": 3,
+          "work": {
+            "kind": "cadence",
+            "name": "30 s de cadencia alta",
+            "durationSec": 30,
+            "distanceKm": 0.1,
+            "target": "175–185 pasos/min",
+            "desc": "Aumenta la frecuencia de pasos sin acelerar de forma descontrolada. Apoya el pie bajo la cadera y mantén los hombros sueltos.",
+            "animationUrl": "./assets/running/outdoor-cadence.gif",
+            "animationAlt": "GIF de la zancada y el apoyo del pie de una corredora en una pista de atletismo",
+            "animationLabel": "30 s de cadencia alta",
+            "animationSpeedMs": 560,
+            "animationKey": "cadence"
+          },
+          "recovery": {
+            "kind": "recovery",
+            "name": "Trote suave",
+            "durationSec": 60,
+            "distanceKm": 0.15,
+            "target": "RPE 4 · pasos relajados",
+            "desc": "Vuelve a un trote cómodo y deja que la respiración se normalice antes del siguiente bloque de cadencia.",
+            "animationUrl": "./assets/running/outdoor-running.gif",
+            "animationAlt": "GIF de dos corredores entrenando en una pista de atletismo al aire libre",
+            "animationLabel": "Trote suave",
+            "animationSpeedMs": 1300,
+            "animationKey": "recovery"
+          }
+        },
+        {
+          "phase": "cooldown",
+          "title": "Enfriamiento",
+          "description": "Baja pulsaciones y estira la musculatura implicada.",
+          "segments": [
+            {
+              "kind": "walk",
+              "name": "Caminata de vuelta a la calma",
+              "durationSec": 240,
+              "distanceKm": 0.4,
+              "target": "Respiración nasal y hombros relajados",
+              "desc": "Reduce el ritmo progresivamente hasta caminar y respira de forma lenta por la nariz.",
+              "animationUrl": "./assets/running/outdoor-running.gif",
+              "animationAlt": "GIF de dos corredores entrenando en una pista de atletismo al aire libre",
+              "animationLabel": "Caminata de vuelta a la calma",
+              "animationSpeedMs": 2200,
+              "animationKey": "cooldown"
+            },
+            {
+              "kind": "stretch",
+              "name": "Estiramientos de gemelos, cuádriceps e isquios",
+              "durationSec": 60,
+              "target": "20 s por grupo muscular",
+              "desc": "Estira sin rebotes. Presta atención a gemelos y sóleo, muy implicados en el trabajo de cadencia.",
+              "animationUrl": "./assets/running/outdoor-running.gif",
+              "animationAlt": "GIF de dos corredores entrenando en una pista de atletismo al aire libre",
+              "animationLabel": "Estiramientos de gemelos, cuádriceps e isquios",
+              "animationSpeedMs": 2200,
+              "animationKey": "cooldown"
+            }
+          ]
+        }
+      ],
+      "previewGif": "./assets/running/outdoor-cadence.gif",
+      "previewAlt": "GIF de la zancada y el apoyo del pie de una corredora en una pista de atletismo",
+      "previewLabel": "Cadencia y zancada"
+    }
+  ]
+}

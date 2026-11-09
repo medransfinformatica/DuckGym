@@ -1,0 +1,124 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 400" width="640" height="400" fill="none" role="img" aria-labelledby="title desc">
+  <title id="title">Calentamiento de running</title>
+  <desc id="desc">Animación de una persona caminando y movilizando tobillos, rodillas y cadera antes de correr.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#f59e0b" stop-opacity=".24"/>
+      <stop offset=".55" stop-color="#0f172a" stop-opacity="0"/>
+      <stop offset="1" stop-color="#f97316" stop-opacity=".14"/>
+    </linearGradient>
+    <linearGradient id="body" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#fff7ed"/>
+      <stop offset="1" stop-color="#fde68a"/>
+    </linearGradient>
+    <radialGradient id="glow">
+      <stop offset="0" stop-color="#fbbf24" stop-opacity=".4"/>
+      <stop offset="1" stop-color="#fbbf24" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="sun">
+      <stop offset="0" stop-color="#fde68a"/>
+      <stop offset="1" stop-color="#f59e0b"/>
+    </radialGradient>
+  </defs>
+
+  <rect width="640" height="400" fill="url(#bg)"/>
+  <circle cx="320" cy="208" r="152" fill="url(#glow)">
+    <animate attributeName="r" values="144;164;144" dur="4s" repeatCount="indefinite"/>
+  </circle>
+
+  <g transform="translate(516 92)">
+    <g>
+      <animateTransform attributeName="transform" type="rotate" from="0" to="360" dur="42s" repeatCount="indefinite"/>
+      <g stroke="#fbbf24" stroke-width="4" stroke-linecap="round" opacity=".55">
+        <line x1="0" y1="-48" x2="0" y2="-64"/>
+        <line x1="34" y1="-34" x2="45" y2="-45"/>
+        <line x1="48" y1="0" x2="64" y2="0"/>
+        <line x1="34" y1="34" x2="45" y2="45"/>
+        <line x1="0" y1="48" x2="0" y2="64"/>
+        <line x1="-34" y1="34" x2="-45" y2="45"/>
+        <line x1="-48" y1="0" x2="-64" y2="0"/>
+        <line x1="-34" y1="-34" x2="-45" y2="-45"/>
+      </g>
+    </g>
+    <circle r="32" fill="url(#sun)">
+      <animate attributeName="r" values="30;34;30" dur="3s" repeatCount="indefinite"/>
+    </circle>
+  </g>
+
+  <g stroke="#fbbf24" stroke-width="2" stroke-dasharray="5 10" opacity=".35" stroke-linecap="round">
+    <path d="M186 196 Q218 168 252 190">
+      <animate attributeName="stroke-dashoffset" values="0;-30" dur="2.4s" repeatCount="indefinite"/>
+    </path>
+    <path d="M420 246 Q454 220 486 244">
+      <animate attributeName="stroke-dashoffset" values="0;-30" dur="2.4s" begin="-.8s" repeatCount="indefinite"/>
+    </path>
+  </g>
+
+  <line x1="24" y1="340" x2="616" y2="340" stroke="#fbbf24" stroke-opacity=".22" stroke-width="3" stroke-linecap="round"/>
+  <line x1="24" y1="340" x2="616" y2="340" stroke="#fef3c7" stroke-opacity=".45" stroke-width="3" stroke-linecap="round" stroke-dasharray="22 34">
+    <animate attributeName="stroke-dashoffset" values="0;-56" dur="1.6s" repeatCount="indefinite"/>
+  </line>
+
+  <g transform="translate(320 220)">
+    <ellipse cx="0" cy="122" rx="90" ry="12" fill="#020617" opacity=".34"/>
+
+    <g>
+      <animateTransform attributeName="transform" type="translate" values="0 0;0 -5;0 0" dur=".8s" repeatCount="indefinite"/>
+
+      <g>
+        <animateTransform attributeName="transform" type="rotate" values="-18 0 0;20 0 0;-18 0 0" dur="1.6s" repeatCount="indefinite"/>
+        <path d="M0 0 L-12 50 L-24 92 L-4 102" stroke="#fbbf24" stroke-width="14" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M-4 102 L18 104" stroke="#fde68a" stroke-width="10" stroke-linecap="round"/>
+        <circle cx="-24" cy="92" r="12" stroke="#fde68a" stroke-width="2" stroke-opacity=".5">
+          <animate attributeName="r" values="10;16;10" dur="1.6s" repeatCount="indefinite"/>
+          <animate attributeName="stroke-opacity" values=".5;.1;.5" dur="1.6s" repeatCount="indefinite"/>
+        </circle>
+      </g>
+
+      <g transform="translate(10 -80)">
+        <g>
+          <animateTransform attributeName="transform" type="rotate" values="22 0 0;-24 0 0;22 0 0" dur="1.6s" repeatCount="indefinite"/>
+          <path d="M0 0 L-14 28 L-4 50" stroke="#fbbf24" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
+        </g>
+      </g>
+
+      <path d="M0 0 L8 -82" stroke="url(#body)" stroke-width="21" stroke-linecap="round"/>
+      <path d="M-4 2 L8 5" stroke="#fffbeb" stroke-width="13" stroke-linecap="round"/>
+
+      <g>
+        <animateTransform attributeName="transform" type="rotate" values="20 0 0;-18 0 0;20 0 0" dur="1.6s" repeatCount="indefinite"/>
+        <path d="M0 0 L16 50 L8 94 L30 102" stroke="url(#body)" stroke-width="15" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M30 102 L52 103" stroke="#fffbeb" stroke-width="11" stroke-linecap="round"/>
+        <circle cx="8" cy="94" r="13" stroke="#fff7ed" stroke-width="2" stroke-opacity=".5">
+          <animate attributeName="r" values="11;17;11" dur="1.6s" repeatCount="indefinite"/>
+          <animate attributeName="stroke-opacity" values=".5;.1;.5" dur="1.6s" repeatCount="indefinite"/>
+        </circle>
+      </g>
+
+      <circle cx="24" cy="-106" r="19" fill="#fffbeb"/>
+      <path d="M8 -112 Q24 -122 41 -108" stroke="#f59e0b" stroke-width="5" stroke-linecap="round"/>
+      <circle cx="31" cy="-108" r="2.3" fill="#0f172a"/>
+
+      <g transform="translate(10 -80)">
+        <g>
+          <animateTransform attributeName="transform" type="rotate" values="-24 0 0;22 0 0;-24 0 0" dur="1.6s" repeatCount="indefinite"/>
+          <path d="M0 0 L14 30 L32 22" stroke="#fffbeb" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
+        </g>
+      </g>
+
+      <circle cx="12" cy="-46" r="40" stroke="#fde68a" stroke-width="2" opacity=".2">
+        <animate attributeName="r" values="34;48;34" dur="3.2s" repeatCount="indefinite"/>
+        <animate attributeName="opacity" values=".25;.03;.25" dur="3.2s" repeatCount="indefinite"/>
+      </circle>
+    </g>
+  </g>
+
+  <g fill="#fde68a" opacity=".55">
+    <path d="M156 128 l4 10 10 4 -10 4 -4 10 -4 -10 -10 -4 10 -4z">
+      <animate attributeName="opacity" values=".15;.8;.15" dur="2.8s" repeatCount="indefinite"/>
+    </path>
+    <path d="M470 282 l3 8 8 3 -8 3 -3 8 -3 -8 -8 -3 8 -3z">
+      <animate attributeName="opacity" values=".1;.65;.1" dur="3.4s" begin="-.7s" repeatCount="indefinite"/>
+    </path>
+  </g>
+</svg>

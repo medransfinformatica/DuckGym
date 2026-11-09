@@ -1,0 +1,50 @@
+{
+    "DUCK-4440": {
+        "code": "DUCK-4440",
+        "id": "class-duck-4440",
+        "teacher": "duck890",
+        "teacherName": "Medrans",
+        "name": "cardio",
+        "description": "",
+        "level": "Principiante",
+        "emoji": "🎓",
+        "minutes": 18,
+        "createdAt": "2026-11-08T15:44:20.041Z",
+        "exercises": [
+            {
+                "name": "Dominadas supinas",
+                "detail": "4 series × 6 reps",
+                "gif": "https://cdn.jsdelivr.net/gh/JahelCuadrado/ExerciseGymGifsDB@v1.1.0/lats/chin-up.gif",
+                "desc": "Agarre supino al ancho de los hombros; tira del cuerpo hasta que la barbilla supere la barra.",
+                "sourceCategory": "gym",
+                "sourceName": "Tracción / Espalda y Bíceps"
+            },
+            {
+                "name": "Remo con barra",
+                "detail": "4 series × 10 reps",
+                "gif": "https://cdn.jsdelivr.net/gh/JahelCuadrado/ExerciseGymGifsDB@v1.1.0/upper-back/barbell-bent-over-row.gif",
+                "desc": "Con el torso inclinado y la espalda neutra, lleva la barra al abdomen apretando los omóplatos.",
+                "sourceCategory": "gym",
+                "sourceName": "Tracción / Espalda y Bíceps"
+            },
+            {
+                "name": "Dominadas supinas",
+                "detail": "4 series × 6 reps",
+                "gif": "https://cdn.jsdelivr.net/gh/JahelCuadrado/ExerciseGymGifsDB@v1.1.0/lats/chin-up.gif",
+                "desc": "Agarre supino al ancho de los hombros; tira del cuerpo hasta que la barbilla supere la barra.",
+                "sourceCategory": "gym",
+                "sourceName": "Tracción / Espalda y Bíceps"
+            }
+        ],
+        "enrollments": {
+            "daniel890": {
+                "name": "daniel",
+                "joinedAt": "2026-11-08T15:53:41+00:00"
+            },
+            "danielsan890": {
+                "name": "daniel",
+                "joinedAt": "2026-11-09T19:16:10+00:00"
+            }
+        }
+    }
+}
